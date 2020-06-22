@@ -79,6 +79,21 @@ motor3ByteToESC = False
 haltThreadFlag = False
 uartArduinoOK = False
 
+# GPS variables
+global serGPS
+global uartGPSOK
+
+uartGPSOK = False
+
+# Socket server variables
+
+global sock
+global haveSocketOpened
+global client_sock
+
+haveSocketOpened = False
+
+
 class InitDelayClass:
     def run(self):
         global MVSThread
@@ -281,6 +296,198 @@ class KeyboardPoller:
                         targetMotorRPM1 = 0 + center_value
                         targetMotorRPM2 = 0 + center_value
 
+class SocketServer:
+    global sock
+    """ Simple socket server that listens to one single client. """
+
+    def __init__(self, host='0.0.0.0', port=2010):
+        global sock
+        """ Initialize the server with a host and port to listen to. """
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.host = host
+        self.port = port
+        sock.bind((host, port))
+        sock.listen(1)
+        self._running = True
+
+    def terminate(self):
+        self._running = False
+
+    def run(self):
+        global haveSocketOpened
+        global haltThreadFlag
+        while self._running and not haltThreadFlag:
+            self.run_server()
+            haveSocketOpened = False
+            time.sleep(5)
+            self.close()
+            time.sleep(5)
+            self.__init__()
+        print('Exiting Socket Server')
+
+    def close(self):
+        global sock
+        """ Close the server socket. """
+        print('Closing server socket (host {}, port {})'.format(self.host, self.port))
+        if sock:
+            sock.close()
+            sock = None
+
+    def sendSocketMessage(self, message):
+        global sock
+        global haveSocketOpened
+        global client_sock
+        # print('Send Socket message : ')
+        try:
+            if haveSocketOpened:
+                client_sock.send(message)
+        except:
+            writeLogFileError("Socket server - error while sending messages")
+            print("Error sending Socket message")
+
+    def run_server(self):
+        global sock
+        global client_sock
+        global haveSocketOpened
+        global haltThreadFlag
+        """ Accept and handle an incoming connection. """
+        print('Starting socket server (host {}, port {})'.format(self.host, self.port))
+        client_sock, client_addr = sock.accept()
+        print('Client {} connected'.format(client_addr))
+        haveSocketOpened = True
+        stop = False
+        while not stop and not haltThreadFlag:
+            if client_sock:
+                # Check if the client is still connected and if data is available:
+                try:
+                    rdy_read, rdy_write, sock_err = select.select([client_sock, ], [], [])
+                except select.error:
+                    print('Select() failed on socket with {}'.format(client_addr))
+                    writeLogFileError("Socket server - Select() failed on socket with {}")
+                    return 1
+                if len(rdy_read) > 0:
+                    try:
+                        read_data = client_sock.recv(255)
+                        # Check if socket has been closed
+                        if len(read_data) == 0:
+                            print('{} closed the socket.'.format(client_addr))
+                            stop = True
+                            haveSocketOpened = False
+                        else:
+                            print('>>> Received: {}'.format(read_data.rstrip()))
+                            if read_data.rstrip() == 'quit':
+                                stop = True
+                                haveSocketOpened = False
+                            else:
+                                client_sock.send(read_data)
+
+                    except ConnectionResetError:
+                        print('Client has disconnected while reading from the socket, go back to listening')
+                        stop = True
+                        haveSocketOpened = False
+            else:
+                print("No client is connected, SocketServer can't receive data")
+                stop = True
+                haveSocketOpened = False
+        # Close socket
+        print('Closing connection with {}'.format(client_addr))
+        client_sock.close()
+        haveSocketOpened = True
+        return 0
+
+
+class GPSUARTConnection:
+    def __init__(self):
+        self._running = True
+
+    def terminate(self):
+        self._running = False
+
+    def run(self):
+        global serGPS
+        global uartGPSOK
+        global haltThreadFlag
+
+        if uartGPSOK == True:
+            try:
+                time.sleep(1)
+                serialmessage = str.encode('AT\r\n')
+                serGPS.write(serialmessage)
+                time.sleep(2)
+                #print("Read from GPS:" + serialmessage)
+                x = serGPS.readline()
+                #print("Feedback from GPS : " + x)
+                writeINFOLogFile("GPS - AT:" + x)
+                SocketServerClass.sendSocketMessage(x)
+                time.sleep(2)
+                x = serGPS.readline()
+                #print(x)
+                writeINFOLogFile("GPS - AT2:" + x)
+                SocketServerClass.sendSocketMessage(x)
+
+                time.sleep(1)
+                serialmessage = str.encode('AT+CGNSPWR=1\r\n')
+                serGPS.write(serialmessage)
+                time.sleep(2)
+                x = serGPS.readline()
+                #print(x)
+                writeINFOLogFile("GPS - AT+CGNSPWR=1:" + x)
+                SocketServerClass.sendSocketMessage(x)
+                time.sleep(2)
+                x = serGPS.readline()
+                #print(x)
+                writeINFOLogFile("GPS - AT+CGNSPWR2:" + x)
+                SocketServerClass.sendSocketMessage(x)
+
+
+
+                while not haltThreadFlag:
+                    time.sleep(1)
+                    serialmessage = str.encode('AT+CGNSINF\r\n')
+                    serGPS.write(serialmessage)
+                    time.sleep(2)
+                    x = serGPS.readline()
+                    #print(x)
+                    #writeINFOLogFile("GPS - AT+CGNSINF1:" + x)
+                    SocketServerClass.sendSocketMessage(x)
+                    time.sleep(2)
+                    x = serGPS.readline()
+                    #print(x)
+                    #writeINFOLogFile("GPS - AT+CGNSINF2:" + x)
+                    getCoord(x)
+                    SocketServerClass.sendSocketMessage(x)
+            except Exception as e:
+                print("Error using GPS serial port - " + str(e))
+                writeLogFileError("ERROR;GPS error while using serial port for GPS:" + str(e))
+                serGPS.close()
+                uartGPSOK = False
+        else:
+            time.sleep(5)
+            self.initGPS()
+            self.run()
+
+    def initGPS(self):
+        global uartGPSOK
+        global serGPS
+        # SIMEnFlag.on()
+        time.sleep(1)
+        print('OPENING serial port for GPS GSN')
+        try:
+            serGPS = serial.Serial(
+                port='/dev/ttyS0',
+                baudrate=115200,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                bytesize=serial.EIGHTBITS,
+                timeout=1
+            )
+            uartGPSOK = True
+        except:
+            # SIMEnFlag.off()
+            writeLogFileError("GPS - Could not open Serial port for GPS")
+            print("Error opening serial port 0")
+        print('GPS GSN connected succesfully')
 
 class GamePadPoller:
     def __init__(self):
@@ -413,7 +620,7 @@ class MotorValuesSetter:
 
     def run(self):
         global arDuinoSerialPort
-        global softFollower  # Flag for using softFoloower function with soft steps to reach the target rpm
+        global softFollower  # Flag for using softFolower function with soft steps to reach the target rpm
         global softStep  # steps for reaching the target rpm
         global lowLimitValue  # minimum value in positive and negativ direction
         global softTiming  # secs waiting between the soft steps
@@ -586,6 +793,20 @@ KBPThread = Thread(target=KBP.run)
 
 MVS = MotorValuesSetter()
 MVSThread = Thread(target=MVS.run)
+
+# Create SocketServer Class for conctrol from GUI
+SocketServerClass = SocketServer()
+# Create Thread for Socket server class
+SocketServerThread = Thread(target=SocketServerClass.run)
+# Start the created Thread for listening for the messages
+SocketServerThread.start()
+
+# Create GPS Connection Class for reading location
+GPSConnection = GPSUARTConnection()
+# Create Thread for reading
+GPSConnectionThread = Thread(target=GPSConnection.run)
+# Start Thread
+GPSConnectionThread.start()
 
 # We have to delay a bit at the beginning for the game controller
 InitDC = InitDelayClass()
