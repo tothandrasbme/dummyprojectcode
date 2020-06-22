@@ -1,5 +1,6 @@
 ###
 ### export DISPLAY=:0 python pygame_example.py
+### Test commit
 ###
 import serial
 import time
