@@ -6,10 +6,12 @@ import time
 # Main thread
 from threading import Thread
 import inputs
-import pygame
-import os
-import signal
-import struct
+import pygame       # Import for active input from keyboard
+import os           # Import for
+import signal       # Import for
+import struct       # Import for
+import socket       # Import for Socket server functionality
+import select
 
 global uartArduinoOK
 global ser
@@ -92,6 +94,43 @@ global haveSocketOpened
 global client_sock
 
 haveSocketOpened = False
+
+# Log File variables
+
+global logFileName
+global isLogging
+global dateTimeYear
+global dateTimeMonth
+global dateTimeDay
+global dateTimeHour
+global dateTimeMin
+global dateTimeSec
+global lat
+global lon
+global latTarget
+global lonTarget
+global altitude
+global speed
+global messageNumber
+global fixedGPS
+
+logFileName = "dummyPLogFile_0"
+isLogging = False
+messageNumber = 0
+dateTimeYear = "0"
+dateTimeMonth = "0"
+dateTimeDay = "0"
+dateTimeHour = "0"
+dateTimeMin = "0"
+dateTimeSec = "0"
+lat = "0.0"
+lon = "0.0"
+latTarget = "47.68472"
+lonTarget = "16.58306"
+altitude = "0.0"
+speed = "0.0"
+fixedGPS = False
+
 
 
 class InitDelayClass:
@@ -382,7 +421,7 @@ class SocketServer:
                             else:
                                 client_sock.send(read_data)
 
-                    except ConnectionResetError:
+                    except:
                         print('Client has disconnected while reading from the socket, go back to listening')
                         stop = True
                         haveSocketOpened = False
@@ -471,7 +510,7 @@ class GPSUARTConnection:
         global uartGPSOK
         global serGPS
         # SIMEnFlag.on()
-        time.sleep(1)
+        time.sleep(10)
         print('OPENING serial port for GPS GSN')
         try:
             serGPS = serial.Serial(
@@ -557,9 +596,9 @@ class GamePadPoller:
         print('GamePad controller has been started!!')
 
         while self._running and not haltThreadFlag:
-            print('Running')
-            events = inputs.get_gamepad()
-            for event in events:
+            try:
+                events = inputs.get_gamepad()
+                for event in events:
 #                 #print(event.ev_type, event.code, event.state)
 #                 if event.code == 'BTN_TL' and event.state == 1:
 #                     print('Rotate Left! ')
@@ -580,38 +619,41 @@ class GamePadPoller:
 #                 if event.code == 'ABS_Y':
 #                     targetMotorRPM1 = ((event.state - 127) * 5) + 5000
                     
-                if event.code == 'ABS_RZ':
-                    print(event.ev_type, event.code, event.state)
-                    targetMotorRPM1 = (event.state * 3) + center_value
-                    targetMotorRPM2 = (event.state * 3) + center_value
-                    targetMotorRPM3 = (event.state * 3) + center_value
-                    
-                    currentMotorRPM1 = targetMotorRPM1
-                    currentMotorRPM2 = targetMotorRPM2
-                    currentMotorRPM3 = targetMotorRPM3
-                    print(str(currentMotorRPM1))
-                    newSettingsForESC = True
-                    
-                if event.code == 'ABS_Z':
-                    print(event.ev_type, event.code, event.state)
-                    targetMotorRPM1 = -(event.state * 3) + center_value
-                    targetMotorRPM2 = -(event.state * 3) + center_value
-                    targetMotorRPM3 = -(event.state * 3) + center_value
-                    
-                    currentMotorRPM1 = targetMotorRPM1
-                    currentMotorRPM2 = targetMotorRPM2
-                    currentMotorRPM3 = targetMotorRPM3
-                    newSettingsForESC = True
-                    
-                if event.code == 'BTN_SELECT': 
-                    print("Event: Stop it!")
-                    targetMotorRPM1 = center_value
-                    currentMotorRPM1 = targetMotorRPM1
-                    targetMotorRPM2 = center_value
-                    currentMotorRPM2 = targetMotorRPM2
-                    targetMotorRPM3 = center_value
-                    currentMotorRPM3 = targetMotorRPM3
-                    newSettingsForESC = True
+                    if event.code == 'ABS_RZ':
+                        print(event.ev_type, event.code, event.state)
+                        targetMotorRPM1 = (event.state * 3) + center_value
+                        targetMotorRPM2 = (event.state * 3) + center_value
+                        targetMotorRPM3 = (event.state * 3) + center_value
+
+                        currentMotorRPM1 = targetMotorRPM1
+                        currentMotorRPM2 = targetMotorRPM2
+                        currentMotorRPM3 = targetMotorRPM3
+                        print(str(currentMotorRPM1))
+                        newSettingsForESC = True
+
+                    if event.code == 'ABS_Z':
+                        print(event.ev_type, event.code, event.state)
+                        targetMotorRPM1 = -(event.state * 3) + center_value
+                        targetMotorRPM2 = -(event.state * 3) + center_value
+                        targetMotorRPM3 = -(event.state * 3) + center_value
+
+                        currentMotorRPM1 = targetMotorRPM1
+                        currentMotorRPM2 = targetMotorRPM2
+                        currentMotorRPM3 = targetMotorRPM3
+                        newSettingsForESC = True
+
+                    if event.code == 'BTN_SELECT':
+                        print("Event: Stop it!")
+                        targetMotorRPM1 = center_value
+                        currentMotorRPM1 = targetMotorRPM1
+                        targetMotorRPM2 = center_value
+                        currentMotorRPM2 = targetMotorRPM2
+                        targetMotorRPM3 = center_value
+                        currentMotorRPM3 = targetMotorRPM3
+                        newSettingsForESC = True
+            except:
+                print('GamePad: Exception, there is no gamepad, but everything is going on without gamepad')
+                time.sleep(10)
 
 class MotorValuesSetter:
     _running = True
@@ -768,6 +810,121 @@ class SerialPort:
     def recv(self):
         global ser
         return ser.readline()
+
+###
+### Log file section
+###
+def initNewLogFile():
+    global logFileName
+    # init logging
+    LOG_LEVEL = logging.INFO
+    # LOG_LEVEL = logging.DEBUG
+    setNextLogFileNumber()
+    # LOG_FILE = "/dev/stdout"
+    LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
+    logging.basicConfig(filename=logFileName, format=LOG_FORMAT, level=LOG_LEVEL)
+
+def closeLogFile():
+    logging.shutdown()
+
+def setNextLogFileNumber():
+    global logFileName
+    onlyfiles = [f for f in listdir("/home/pi") if isfile(join("/home/pi", f))]
+
+    #print("Find files in the directiory:")
+    #print("Original file list: " + str(onlyfiles))
+    if len(onlyfiles) != 0:
+        numbersList = [0]
+        for fileItem in onlyfiles:
+            if fileItem.find("dummyPLogFile") >= 0:
+                numbersList.append(fileItem[11:len(fileItem)])
+                #print(fileItem[11:len(fileItem)])
+        #print("Maximum: " + str(max(numbersList)))
+        stringNumber = str(int(max(numbersList))+1)
+        logFileName = "%s%s" % ("dummyPLogFile_", stringNumber)
+    else:
+        logFileName = "dummyPLogFile_0"
+
+def writeLogFileITEM(msg):
+    global isLogging
+    if isLogging:
+        logging.info(msg)
+
+
+def writeINFOLogFile(msg):
+    global isLogging
+    if isLogging:
+        writeLogFileITEM("INFO;" + str(int(time.time())) + ";" + str(messageNumber) + ";" + msg)
+
+def writeGPSLogInfos():
+    global dateTimeYear
+    global dateTimeMonth
+    global dateTimeDay
+    global dateTimeHour
+    global dateTimeMin
+    global dateTimeSec
+    global lat
+    global lon
+    global latTarget
+    global lonTarget
+    global altitude
+    global speed
+    global isLogging
+
+    global messageNumber
+
+    if isLogging:
+        writeLogFileITEM("GPS;"+ str(int(time.time())) + ";" + str(messageNumber) + ";" + dateTimeYear + "." + dateTimeMonth + "." + dateTimeDay + ";" + dateTimeHour + ":" + dateTimeMin + ":" + dateTimeSec )
+        messageNumber += 1
+
+def writeDATELogInfos():
+
+    global messageNumber
+    global recSettings
+    global nodeDataBase
+    global isLogging
+
+    if isLogging == True:
+        nodenum = 0
+        resultstring = "DATE;"+ str(int(time.time())) + ";" + str(messageNumber)
+        resultstring += ";" + str(recSettings.radioMode)
+        resultstring += ";" + str(recSettings.deviceReset)
+        resultstring += ";" + str(recSettings.trControl)
+        resultstring += ";" + str(recSettings.numOfDevices)
+        while nodenum < 3:
+            #print(str(nodenum))
+            resultstring += ";" + str(nodeDataBase[nodenum].txAddress)
+            resultstring += ";" + str(nodeDataBase[nodenum].vBattery)
+            resultstring += ";" + str(nodeDataBase[nodenum].mDecLDValue)
+            resultstring += ";" + str(nodeDataBase[nodenum].tempDevice)
+            # pprint(vars(nodeDataBase[nodeNum]))
+            nodenum += 1
+        while nodenum < 6:
+            #print(str(nodenum))
+            resultstring += ";" + str(nodeDataBase[nodenum].txAddress)
+            resultstring += ";" + str(nodeDataBase[nodenum].vBattery)
+            resultstring += ";" + str(nodeDataBase[nodenum].mDecWeigthMeasure)
+            resultstring += ";" + str(nodeDataBase[nodenum].tempDevice)
+            # pprint(vars(nodeDataBase[nodeNum]))
+            nodenum += 1
+        while nodenum < 9:
+            #print(str(nodenum))
+            resultstring += ";" + str(nodeDataBase[nodenum].txAddress)
+            resultstring += ";" + str(nodeDataBase[nodenum].vBattery)
+            resultstring += ";" + str(nodeDataBase[nodenum].mAccelX)
+            resultstring += ";" + str(nodeDataBase[nodenum].mAccelY)
+            resultstring += ";" + str(nodeDataBase[nodenum].mAccelZ)
+            resultstring += ";" + str(nodeDataBase[nodenum].tempDevice)
+            # pprint(vars(nodeDataBase[nodeNum]))
+            nodenum += 1
+        writeLogFileITEM(resultstring)
+        messageNumber += 1
+
+def writeLogFileError(msg):
+    global isLogging
+    if isLogging:
+        writeLogFileITEM("ERROR;"+ str(int(time.time())) + ";" + str(messageNumber) + ";" + msg)
+
 
 ## Pygame for controlling
 #os.environ["SDL_VIDEODRIVER"] = "dummy"
