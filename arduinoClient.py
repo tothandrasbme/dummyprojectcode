@@ -12,6 +12,9 @@ import signal       # Import for
 import struct       # Import for
 import socket       # Import for Socket server functionality
 import select
+import logging      # Logging for tests
+import sys
+import string
 
 global uartArduinoOK
 global ser
@@ -44,6 +47,8 @@ global motor1ByteToESC
 global motor2ByteToESC
 global motor3ByteToESC
 global stepTestValue
+global gamePadTestingCount
+global gamePadTestingCountLimit
 
 
 rotate_left = False
@@ -55,6 +60,8 @@ currentCent = 0
 currentSection = 0
 leftValue = 1300
 rightValue = 1300
+gamePadTestingCount = 0
+gamePadTestingCountLimit = 3
 
 currentMotorRPM1 = center_value
 currentMotorRPM2 = center_value
@@ -80,6 +87,7 @@ motor3ByteToESC = False
 
 haltThreadFlag = False
 uartArduinoOK = False
+
 
 # GPS variables
 global serGPS
@@ -155,7 +163,7 @@ class InitDelayClass:
 
         print('Game Controller and Motor value setter starting')
 
-        newStopESC = True
+        #####STOP for testing #### newStopESC = True
 
 class KeyboardPoller:
     def __init__(self):
@@ -454,14 +462,14 @@ class GPSUARTConnection:
                 serialmessage = str.encode('AT\r\n')
                 serGPS.write(serialmessage)
                 time.sleep(2)
-                #print("Read from GPS:" + serialmessage)
+                print("Read from GPS:" + serialmessage)
                 x = serGPS.readline()
-                #print("Feedback from GPS : " + x)
+                print("Feedback from GPS : " + x)
                 writeINFOLogFile("GPS - AT:" + x)
                 SocketServerClass.sendSocketMessage(x)
                 time.sleep(2)
                 x = serGPS.readline()
-                #print(x)
+                print(x)
                 writeINFOLogFile("GPS - AT2:" + x)
                 SocketServerClass.sendSocketMessage(x)
 
@@ -489,13 +497,13 @@ class GPSUARTConnection:
                     x = serGPS.readline()
                     #print(x)
                     #writeINFOLogFile("GPS - AT+CGNSINF1:" + x)
-                    SocketServerClass.sendSocketMessage(x)
+                    #### TEST #### SocketServerClass.sendSocketMessage(x)
                     time.sleep(2)
                     x = serGPS.readline()
                     #print(x)
                     #writeINFOLogFile("GPS - AT+CGNSINF2:" + x)
                     getCoord(x)
-                    SocketServerClass.sendSocketMessage(x)
+                    #### TEST #### SocketServerClass.sendSocketMessage(x)
             except Exception as e:
                 print("Error using GPS serial port - " + str(e))
                 writeLogFileError("ERROR;GPS error while using serial port for GPS:" + str(e))
@@ -515,7 +523,7 @@ class GPSUARTConnection:
         try:
             serGPS = serial.Serial(
                 port='/dev/ttyS0',
-                baudrate=115200,
+                baudrate=38400,
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
                 bytesize=serial.EIGHTBITS,
@@ -592,6 +600,8 @@ class GamePadPoller:
         global motor1ByteToESC
         global motor2ByteToESC
         global motor3ByteToESC
+        global gamePadTestingCount
+        global gamePadTestingCountLimit
 
         print('GamePad controller has been started!!')
 
@@ -653,6 +663,10 @@ class GamePadPoller:
                         newSettingsForESC = True
             except:
                 print('GamePad: Exception, there is no gamepad, but everything is going on without gamepad')
+                gamePadTestingCount = gamePadTestingCount + 1
+                if(gamePadTestingCount > gamePadTestingCountLimit):
+                    self._running = False
+                    print('GamePad: Stop checking')
                 time.sleep(10)
 
 class MotorValuesSetter:
@@ -829,7 +843,7 @@ def closeLogFile():
 
 def setNextLogFileNumber():
     global logFileName
-    onlyfiles = [f for f in listdir("/home/pi") if isfile(join("/home/pi", f))]
+    onlyfiles = [f for f in os.listdir("/home/pi") if os.path.isfile(string.join("/home/pi", f))]
 
     #print("Find files in the directiory:")
     #print("Original file list: " + str(onlyfiles))
@@ -876,6 +890,43 @@ def writeGPSLogInfos():
     if isLogging:
         writeLogFileITEM("GPS;"+ str(int(time.time())) + ";" + str(messageNumber) + ";" + dateTimeYear + "." + dateTimeMonth + "." + dateTimeDay + ";" + dateTimeHour + ":" + dateTimeMin + ":" + dateTimeSec )
         messageNumber += 1
+
+def getCoord(expression):
+    global dateTimeYear
+    global dateTimeMonth
+    global dateTimeDay
+    global dateTimeHour
+    global dateTimeMin
+    global dateTimeSec
+    global lat
+    global lon
+    global altitude
+    global speed
+
+    global messageNumber
+    # Start the serial connection
+    if "+CGNSINF: 1," in expression:
+        # Split the reading by commas and return the parts referencing lat and long
+        array = expression.split(",")
+        dateTimeYear = array[2][0:4]
+        dateTimeMonth = array[2][4:6]
+        dateTimeDay = array[2][6:8]
+        dateTimeHour = array[2][8:10]
+        dateTimeMin = array[2][10:12]
+        dateTimeSec = array[2][12:14]
+
+        lat = array[3]
+        print(lat)
+        lon = array[4]
+        print(lon)
+
+        altitude = array[5]
+        speed = array[6]
+
+        writeGPSLogInfos()
+
+        print("Date " + dateTimeYear + "." + dateTimeMonth + "." + dateTimeDay + " --- " + dateTimeHour + ":" + dateTimeMin + ":" + dateTimeSec + " Alt : " + altitude + " Speed : " + speed)
+
 
 def writeDATELogInfos():
 
@@ -984,6 +1035,10 @@ def signal_handler(sig, frame):
     # sys.exit(0)
     os._exit(1)
 signal.signal(signal.SIGINT, signal_handler)
+
+#Init log file for testing purposes
+initNewLogFile()
+
 # Commented for better performance # print('Waiting for data')
 while Exit==False:
 
