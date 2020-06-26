@@ -15,6 +15,7 @@ import select
 import logging      # Logging for tests
 import sys
 import string
+import pynmea2
 
 global uartArduinoOK
 global ser
@@ -121,6 +122,8 @@ global altitude
 global speed
 global messageNumber
 global fixedGPS
+global currentGPSlat
+global currentGPSlon
 
 logFileName = "dummyPLogFile_0"
 isLogging = False
@@ -138,6 +141,8 @@ lonTarget = "16.58306"
 altitude = "0.0"
 speed = "0.0"
 fixedGPS = False
+currentGPSlat = 46.711627
+currentGPSlon = 17.479634
 
 
 
@@ -237,7 +242,7 @@ class KeyboardPoller:
                         targetMotorRPM3 = center_value
                         currentMotorRPM3 = targetMotorRPM3
                         newSettingsForESC = True
-                        
+
                     if event.key == pygame.K_f:
                         print("Event: Rotate!")
                         targetMotorRPM1 = center_value + 750
@@ -247,7 +252,7 @@ class KeyboardPoller:
                         targetMotorRPM3 = center_value + 750
                         currentMotorRPM3 = targetMotorRPM3
                         newSettingsForESC = True
-                    
+
                     if event.key == pygame.K_g:
                         print("Event: Rotate!")
                         targetMotorRPM1 = center_value - 750
@@ -257,7 +262,7 @@ class KeyboardPoller:
                         targetMotorRPM3 = center_value - 750
                         currentMotorRPM3 = targetMotorRPM3
                         newSettingsForESC = True
-                    
+
                     if event.key == pygame.K_x:
                         print("Event: Stop it!")
                         targetMotorRPM1 = center_value
@@ -267,7 +272,7 @@ class KeyboardPoller:
                         targetMotorRPM3 = center_value
                         currentMotorRPM3 = targetMotorRPM3
                         newSettingsForESC = True
-                        
+
                     if event.key == pygame.K_r:
                         print("Event: Test Forward!")
                         newTestForwardESC = True
@@ -455,60 +460,26 @@ class GPSUARTConnection:
         global serGPS
         global uartGPSOK
         global haltThreadFlag
+        global currentGPSlat
+        global currentGPSlon
 
         if uartGPSOK == True:
-            try:
-                time.sleep(1)
-                serialmessage = str.encode('AT\r\n')
-                serGPS.write(serialmessage)
-                time.sleep(2)
-                print("Read from GPS:" + serialmessage)
-                x = serGPS.readline()
-                print("Feedback from GPS : " + x)
-                writeINFOLogFile("GPS - AT:" + x)
-                SocketServerClass.sendSocketMessage(x)
-                time.sleep(2)
-                x = serGPS.readline()
-                print(x)
-                writeINFOLogFile("GPS - AT2:" + x)
-                SocketServerClass.sendSocketMessage(x)
+            while not haltThreadFlag:
+                data = serGPS.readline()
+                #print(data)
+                message = data[0:6]
+                if (message == "$GNRMC"):
+                    # GNRMC = Recommended minimum specific GPS/Transit data
+                    # Reading the GPS fix data is an alternative approach that also works
+                    parts = data.split(",")
+                    msg = pynmea2.parse(data)
+                    print("Your position: lon = " + formatDegreesMinutes(str(msg.lon),3) + ", lat = " + formatDegreesMinutes(str(msg.lat),2))
 
-                time.sleep(1)
-                serialmessage = str.encode('AT+CGNSPWR=1\r\n')
-                serGPS.write(serialmessage)
-                time.sleep(2)
-                x = serGPS.readline()
-                #print(x)
-                writeINFOLogFile("GPS - AT+CGNSPWR=1:" + x)
-                SocketServerClass.sendSocketMessage(x)
-                time.sleep(2)
-                x = serGPS.readline()
-                #print(x)
-                writeINFOLogFile("GPS - AT+CGNSPWR2:" + x)
-                SocketServerClass.sendSocketMessage(x)
-
-
-
-                while not haltThreadFlag:
-                    time.sleep(1)
-                    serialmessage = str.encode('AT+CGNSINF\r\n')
-                    serGPS.write(serialmessage)
-                    time.sleep(2)
-                    x = serGPS.readline()
-                    #print(x)
-                    #writeINFOLogFile("GPS - AT+CGNSINF1:" + x)
-                    #### TEST #### SocketServerClass.sendSocketMessage(x)
-                    time.sleep(2)
-                    x = serGPS.readline()
-                    #print(x)
-                    #writeINFOLogFile("GPS - AT+CGNSINF2:" + x)
-                    getCoord(x)
-                    #### TEST #### SocketServerClass.sendSocketMessage(x)
-            except Exception as e:
-                print("Error using GPS serial port - " + str(e))
-                writeLogFileError("ERROR;GPS error while using serial port for GPS:" + str(e))
-                serGPS.close()
-                uartGPSOK = False
+                    currentGPSlat = formatDegreesMinutes(str(msg.lat),2)    # Save out lattitude
+                    currentGPSlon = formatDegreesMinutes(str(msg.lon),3)    # Save out longitude
+                else:
+                    # Handle other NMEA messages and unsupported strings
+                    pass
         else:
             time.sleep(5)
             self.initGPS()
@@ -628,7 +599,7 @@ class GamePadPoller:
 #                     targetMotorRPM2 = 0 + 5000
 #                 if event.code == 'ABS_Y':
 #                     targetMotorRPM1 = ((event.state - 127) * 5) + 5000
-                    
+
                     if event.code == 'ABS_RZ':
                         print(event.ev_type, event.code, event.state)
                         targetMotorRPM1 = (event.state * 3) + center_value
@@ -976,6 +947,21 @@ def writeLogFileError(msg):
     if isLogging:
         writeLogFileITEM("ERROR;"+ str(int(time.time())) + ";" + str(messageNumber) + ";" + msg)
 
+
+# In the NMEA message, the position gets transmitted as:
+# DDMM.MMMMM, where DD denotes the degrees and MM.MMMMM denotes
+# the minutes. However, I want to convert this format to the following:
+# DD.MMMM. This method converts a transmitted string to the desired format
+def formatDegreesMinutes(coordinates,longness):
+    partsDD = coordinates[0:longness]
+    partsMM = coordinates[longness:]
+
+    print('DD: ' + partsDD + 'MM: ' + partsMM)
+
+    floatPartsDD = float(partsDD)
+    floatPartsMM = float(partsMM)
+
+    return str(floatPartsDD + (floatPartsMM / 60))
 
 ## Pygame for controlling
 #os.environ["SDL_VIDEODRIVER"] = "dummy"
