@@ -16,6 +16,9 @@ import logging      # Logging for tests
 import sys
 import string
 import pynmea2
+from state import sysState
+from state import States
+from state import ERRORS
 
 global uartArduinoOK
 global ser
@@ -143,6 +146,9 @@ speed = "0.0"
 fixedGPS = False
 currentGPSlat = 46.711627
 currentGPSlon = 17.479634
+
+#### System state machine
+systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code
 
 
 
