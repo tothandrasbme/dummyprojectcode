@@ -19,6 +19,9 @@ import pynmea2
 from state import sysState
 from state import States
 from state import ERRORS
+from jsonparser import JsonParserClass
+import json
+from jsonsocketservice import JSONSocketServer
 
 global uartArduinoOK
 global ser
@@ -150,6 +153,8 @@ currentGPSlon = 17.479634
 #### System state machine
 systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code
 
+#### System JSON Parser
+json_parser_tool = JsonParserClass()
 
 
 class InitDelayClass:
@@ -353,106 +358,6 @@ class KeyboardPoller:
                         print("Event: Stop!")
                         targetMotorRPM1 = 0 + center_value
                         targetMotorRPM2 = 0 + center_value
-
-class SocketServer:
-    global sock
-    """ Simple socket server that listens to one single client. """
-
-    def __init__(self, host='0.0.0.0', port=2010):
-        global sock
-        """ Initialize the server with a host and port to listen to. """
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.host = host
-        self.port = port
-        sock.bind((host, port))
-        sock.listen(1)
-        self._running = True
-
-    def terminate(self):
-        self._running = False
-
-    def run(self):
-        global haveSocketOpened
-        global haltThreadFlag
-        while self._running and not haltThreadFlag:
-            self.run_server()
-            haveSocketOpened = False
-            time.sleep(5)
-            self.close()
-            time.sleep(5)
-            self.__init__()
-        print('Exiting Socket Server')
-
-    def close(self):
-        global sock
-        """ Close the server socket. """
-        print('Closing server socket (host {}, port {})'.format(self.host, self.port))
-        if sock:
-            sock.close()
-            sock = None
-
-    def sendSocketMessage(self, message):
-        global sock
-        global haveSocketOpened
-        global client_sock
-        # print('Send Socket message : ')
-        try:
-            if haveSocketOpened:
-                client_sock.send(message)
-        except:
-            writeLogFileError("Socket server - error while sending messages")
-            print("Error sending Socket message")
-
-    def run_server(self):
-        global sock
-        global client_sock
-        global haveSocketOpened
-        global haltThreadFlag
-        """ Accept and handle an incoming connection. """
-        print('Starting socket server (host {}, port {})'.format(self.host, self.port))
-        client_sock, client_addr = sock.accept()
-        print('Client {} connected'.format(client_addr))
-        haveSocketOpened = True
-        stop = False
-        while not stop and not haltThreadFlag:
-            if client_sock:
-                # Check if the client is still connected and if data is available:
-                try:
-                    rdy_read, rdy_write, sock_err = select.select([client_sock, ], [], [])
-                except select.error:
-                    print('Select() failed on socket with {}'.format(client_addr))
-                    writeLogFileError("Socket server - Select() failed on socket with {}")
-                    return 1
-                if len(rdy_read) > 0:
-                    try:
-                        read_data = client_sock.recv(255)
-                        # Check if socket has been closed
-                        if len(read_data) == 0:
-                            print('{} closed the socket.'.format(client_addr))
-                            stop = True
-                            haveSocketOpened = False
-                        else:
-                            print('>>> Received: {}'.format(read_data.rstrip()))
-                            if read_data.rstrip() == 'quit':
-                                stop = True
-                                haveSocketOpened = False
-                            else:
-                                client_sock.send(read_data)
-
-                    except:
-                        print('Client has disconnected while reading from the socket, go back to listening')
-                        stop = True
-                        haveSocketOpened = False
-            else:
-                print("No client is connected, SocketServer can't receive data")
-                stop = True
-                haveSocketOpened = False
-        # Close socket
-        print('Closing connection with {}'.format(client_addr))
-        client_sock.close()
-        haveSocketOpened = True
-        return 0
 
 
 class GPSUARTConnection:
@@ -820,7 +725,7 @@ def closeLogFile():
 
 def setNextLogFileNumber():
     global logFileName
-    onlyfiles = [f for f in os.listdir("/home/pi") if os.path.isfile(string.join("/home/pi", f))]
+    onlyfiles = [f for f in os.listdir("/home/pi") if os.path.isfile("/home/pi" + f)]
 
     #print("Find files in the directiory:")
     #print("Original file list: " + str(onlyfiles))
@@ -995,7 +900,7 @@ MVS = MotorValuesSetter()
 MVSThread = Thread(target=MVS.run)
 
 # Create SocketServer Class for conctrol from GUI
-SocketServerClass = SocketServer()
+SocketServerClass = JSONSocketServer()
 # Create Thread for Socket server class
 SocketServerThread = Thread(target=SocketServerClass.run)
 # Start the created Thread for listening for the messages
@@ -1022,6 +927,7 @@ def signal_handler(sig, frame):
     global haltThreadFlag
     print('You pressed Ctrl+C! Wait 3 sec for exiting')
     haltThreadFlag = True
+    SocketServerClass.terminate();
     time.sleep(3)
     print('Exiting...')
     # sys.exit(0)
