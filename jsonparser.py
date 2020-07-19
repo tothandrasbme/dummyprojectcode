@@ -1,9 +1,6 @@
-from jsonsocketservice import JSONSocketServer
-
 class JsonParserClass:
     def __init__(self):
         print("JSONparser initialized")
-        this.socketServerInstance = socketServerInstance
 
     def parse_movement_control_message(self,json_content):
         print("Parse movement control message"+str(json_content))

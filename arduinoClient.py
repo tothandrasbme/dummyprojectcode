@@ -721,6 +721,7 @@ class SerialPort:
                 stopbits=serial.STOPBITS_ONE,
                 bytesize=serial.EIGHTBITS,
             )
+            uartArduinoOK = True
             print('Arduino connected succesfully')
         except:
             print("Error opening serial port for Arduino")
@@ -728,18 +729,26 @@ class SerialPort:
 
     def close(self):
         global ser
+        global uartArduinoOK
         ''' Close the serial port.'''
         ser.close()
+        uartArduinoOK = False
 
     def send(self, msg):
         global ser
-        ser.write(msg)
-        ser.flush
+        global uartArduinoOK
+        if(uartArduinoOK):
+            ser.write(msg)
+            ser.flush
         #print("Send message to arDuino:" + msg)
 
     def recv(self):
         global ser
-        return ser.readline()
+        global uartArduinoOK
+        if(uartArduinoOK == True):
+            return ser.readline()
+        else:
+            return ""
 
 ###
 ### Log file section
