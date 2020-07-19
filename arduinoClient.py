@@ -70,6 +70,8 @@ global regFinished
 global posPrecision
 global orientPrecision
 global coord_list
+global finish_pos
+global start_pos
 global pos_state
 global ori_state
 global rotation_time
