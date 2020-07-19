@@ -3,8 +3,8 @@ import enum
     #####
     ## IDLE
     ## ERROR
-    ## CONTROLLED (robot mozgásban van és SOCKETEN-n vagy gamepaddel stb vezéreljük)
-    ## DRIVING (szabályozó módban van, az adott pontsoron halad végig)
+    ## CONTROLLED (robot mozgasban van es SOCKETEN-n vagy gamepaddel stb vez.)
+    ## DRIVING (szab modban van, az adott pontsoron halad vegig)
     #####
 
 class States(enum.Enum):
@@ -19,7 +19,8 @@ class ERRORS(enum.Enum):
     MISSINGGPS = 2
     NONEXTSTEP = 3
     STOPPEDBYUSER = 4
-
+    NOTINSTARTPOS = 5
+    MISSINGGAMEPAD = 5
 
 class sysState:
     def __init__(self,state):
@@ -31,6 +32,9 @@ class sysState:
 
     def getErrorCode(self):
         return self.errorCode
+
+    def setErrorCode(self, errorCode):
+        self.errorCode = errorCode
 
     def setState(self,state):
         self.currentState = state

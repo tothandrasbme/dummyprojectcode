@@ -16,6 +16,7 @@ import logging      # Logging for tests
 import sys
 import string
 import pynmea2
+import math
 from state import sysState
 from state import States
 from state import ERRORS
@@ -57,6 +58,36 @@ global stepTestValue
 global gamePadTestingCount
 global gamePadTestingCountLimit
 
+#balint
+global x                        # current x pos
+global y                        # current y pos
+global phi
+global vx
+global vy
+global omega_z
+global regulatorMode
+global regFinished
+global posPrecision
+global orientPrecision
+global coord_list
+global pos_state
+global ori_state
+global rotation_time
+global deltaTime
+global offsetTime
+
+
+vx = 0
+vy = 0
+omega_z = 0
+regFinished = False             # vegigert a pontsoron
+posPrecision = 0.2              # 0.2 m
+orientPrecision = math.pi/18    # 10°
+pos_state = 0
+ori_state = 0
+phi = 0                         # nincs orientáció jel, kezdetben ebből indul a robot
+deltaTime = 0.5                 # 1rad=180° megtételéhez szükséges idő
+offsetTime = 0.1                # platform megmozdulásához szükséges idő
 
 rotate_left = False
 rotate_right = False
@@ -425,41 +456,6 @@ class GamePadPoller:
     def terminate(self):
         self._running = False
 
-    def sendControlSignal(self,rpm,direction,motor): # 0 - forward, 1 - backward
-        global currentCent
-        global arDuinoSerialPort
-        centWhich = rpm - (rpm % 100)
-        if centWhich != currentCent:
-            currentCent = centWhich
-            if motor == "L":  # this for the motor Left
-                controlType = "9 "
-            else:
-                if motor == "R":
-                    controlType = "A "
-            if direction == 0:
-                arDuinoSerialPort.send(controlType + str(currentCent + 450))
-                print("Rise speed to rpm (" + motor + "): " + str(currentCent + 450))
-            else:
-                arDuinoSerialPort.send(controlType + str((-1) * (currentCent + 450)))
-                print("Rise speed to rpm (" + motor + "): " + str((-1) * (currentCent + 450)))
-
-    def sendPPMControlSignal(self,measurement,motor):
-        global currentSection
-        global arDuinoSerialPort
-        #print("Controller value: " + str(measurement))
-        sectionWhich = measurement - (measurement % 200)
-        if sectionWhich != currentSection:
-            currentSection = sectionWhich
-            if motor == "L":  # this for the motor Left
-                controlType = "7 "
-            else:
-                if motor == "R":
-                    controlType = "6 "
-            arDuinoSerialPort.send(controlType + str(currentSection))
-            print("Rise speed to ppm (" + motor + "): " + str(currentSection))
-
-
-
     def run(self):
         global arDuinoSerialPort
         global pads
@@ -484,6 +480,14 @@ class GamePadPoller:
         global motor3ByteToESC
         global gamePadTestingCount
         global gamePadTestingCountLimit
+
+
+        #balint
+        global vx
+        global vy
+        global omega_z
+        global regulatorMode
+        global regFinished
 
         print('GamePad controller has been started!!')
 
@@ -511,43 +515,71 @@ class GamePadPoller:
 #                 if event.code == 'ABS_Y':
 #                     targetMotorRPM1 = ((event.state - 127) * 5) + 5000
 
-                    if event.code == 'ABS_RZ':
-                        print(event.ev_type, event.code, event.state)
-                        targetMotorRPM1 = (event.state * 3) + center_value
-                        targetMotorRPM2 = (event.state * 3) + center_value
-                        targetMotorRPM3 = (event.state * 3) + center_value
-
-                        currentMotorRPM1 = targetMotorRPM1
-                        currentMotorRPM2 = targetMotorRPM2
-                        currentMotorRPM3 = targetMotorRPM3
-                        print(str(currentMotorRPM1))
-                        newSettingsForESC = True
-
-                    if event.code == 'ABS_Z':
-                        print(event.ev_type, event.code, event.state)
-                        targetMotorRPM1 = -(event.state * 3) + center_value
-                        targetMotorRPM2 = -(event.state * 3) + center_value
-                        targetMotorRPM3 = -(event.state * 3) + center_value
-
-                        currentMotorRPM1 = targetMotorRPM1
-                        currentMotorRPM2 = targetMotorRPM2
-                        currentMotorRPM3 = targetMotorRPM3
-                        newSettingsForESC = True
-
                     if event.code == 'BTN_SELECT':
-                        print("Event: Stop it!")
-                        targetMotorRPM1 = center_value
-                        currentMotorRPM1 = targetMotorRPM1
-                        targetMotorRPM2 = center_value
-                        currentMotorRPM2 = targetMotorRPM2
-                        targetMotorRPM3 = center_value
-                        currentMotorRPM3 = targetMotorRPM3
-                        newSettingsForESC = True
+                        # print("Event: Stop it!")
+                        vx = 0
+                        vy = 0
+                        omega_z = 0
+                        # targetMotorRPM1 = center_value
+                        # currentMotorRPM1 = targetMotorRPM1
+                        # targetMotorRPM2 = center_value
+                        # currentMotorRPM2 = targetMotorRPM2
+                        # targetMotorRPM3 = center_value
+                        # currentMotorRPM3 = targetMotorRPM3
+                        newStopESC = True
+
+                    else:
+                        if event.code == 'ABS_RZ':
+                            vx = 0.0
+                            vy = 0.0
+                            omega_z = 1.0
+                            #print(event.ev_type, event.code, event.state)
+                            #targetMotorRPM1 = 5500#(event.state * 3) + center_value
+                            #targetMotorRPM2 = 5500#(event.state * 3) + center_value
+                            #targetMotorRPM3 = 5500#(event.state * 3) + center_value
+
+                            #currentMotorRPM1 = targetMotorRPM1
+                            #currentMotorRPM2 = targetMotorRPM2
+                            #currentMotorRPM3 = targetMotorRPM3
+                            #print(str(currentMotorRPM1))
+                            newSettingsForESC = True
+
+                        if event.code == 'ABS_Z':
+                            vx = 0.0
+                            vy = 0.0
+                            omega_z = -1.0
+                            #print(event.ev_type, event.code, event.state)
+
+                            newSettingsForESC = True
+                        if event.code == 'ABS_RX':
+                            vx = event.state/32768+0.0
+                            omega_z=0.0
+                            newSettingsForESC = True
+
+                        if event.code == 'ABS_RY':
+                            vy = event.state/32768+0.0
+                            omega_z=0.0
+                            newSettingsForESC = True
+
+                        if event.code == 'ABS_HAT0X':
+                            vx = event.state
+                            vy= 0.0
+                            omega_z=0.0
+                            newSettingsForESC = True
+
+                        if event.code == 'ABS_HAT0Y':
+                            vx = 0.0
+                            vy = event.state
+                            omega_z=0.0
+                            newSettingsForESC = True
+
             except:
                 print('GamePad: Exception, there is no gamepad, but everything is going on without gamepad')
                 gamePadTestingCount = gamePadTestingCount + 1
                 if(gamePadTestingCount > gamePadTestingCountLimit):
                     self._running = False
+                    systemStateMachine.setState(States.ERROR)
+                    systemStateMachine.setErrorCode(ERRORS.MISSINGGAMEPAD)
                     print('GamePad: Stop checking')
                 time.sleep(10)
 
@@ -939,56 +971,206 @@ initNewLogFile()
 
 # Commented for better performance # print('Waiting for data')
 while Exit==False:
-
+    state = systemStateMachine.getState()
     #print(arDuinoSerialPort.recv())  # Commented for better performance
 
-    #arDuinoSerialPort.send("M 05000 05000 05000")
-    if newSettingsForESC:
-        print('Main M')
+
+    if systemStateMachine.isIDLE():
+
+        vx = 0
+        vy = 0
+        omega_z = 0
+        targetMotorRPM1 = center_value
+        targetMotorRPM2 = center_value
+        targetMotorRPM3 = center_value
+
+        currentMotorRPM1 = int(targetMotorRPM1)
+        currentMotorRPM2 = int(targetMotorRPM2)
+        currentMotorRPM3 = int(targetMotorRPM3)
         arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
-        newSettingsForESC = False
 
-    if newTestForwardESC:
-        arDuinoSerialPort.send("F")
-        print("Send Forward")
-        newTestForwardESC = False
+    if systemStateMachine.isUnderCONTROL():
+        while(systemStateMachine.isUnderCONTROL()):
+            #arDuinoSerialPort.send("M 05000 05000 05000")
+            if newSettingsForESC:
+                print('Main M')
+                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+                newSettingsForESC = False
 
-    if newTestBackESC:
-        arDuinoSerialPort.send("B")
-        print("Send Backward")
-        newTestBackESC = False
+            if newTestForwardESC:
+                arDuinoSerialPort.send("F")
+                print("Send Forward")
+                newTestForwardESC = False
 
-    if newStopESC:
-        arDuinoSerialPort.send("S")
-        print("Send Stop")
-        newStopESC = False
+            if newTestBackESC:
+                arDuinoSerialPort.send("B")
+                print("Send Backward")
+                newTestBackESC = False
 
-    if newTestByteESC:
-        print('Main Z')
-        arDuinoSerialPort.send(['Z', currentMotorRPM1 / 256, currentMotorRPM1 - ((currentMotorRPM1 / 256) * 256), currentMotorRPM2 / 256, currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256), currentMotorRPM3 / 256, currentMotorRPM3 - ((currentMotorRPM3 / 256) * 256)])
-        newTestByteESC = False
+            if newStopESC:
+                arDuinoSerialPort.send("S")
+                print("Send Stop")
+                newStopESC = False
 
-    if motor1ByteToESC:
-        #print('Main K')
-        arDuinoSerialPort.send(['K', currentMotorRPM1 / 256, currentMotorRPM1 - ((currentMotorRPM1 / 256) * 256)])
-        motor1ByteToESC = False
+            if newTestByteESC:
+                print('Main Z')
+                arDuinoSerialPort.send(['Z', currentMotorRPM1 / 256, currentMotorRPM1 - ((currentMotorRPM1 / 256) * 256), currentMotorRPM2 / 256, currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256), currentMotorRPM3 / 256, currentMotorRPM3 - ((currentMotorRPM3 / 256) * 256)])
+                newTestByteESC = False
 
-    if motor2ByteToESC:
-        #print('Main N')
-        arDuinoSerialPort.send(['N', currentMotorRPM2 / 256, currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256)])
-        print("h1 : " + hex(currentMotorRPM2 / 256) + " h2: " + hex(currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256)))
-        #arDuinoSerialPort.send(['N', 0x17,0x70])
-        motor2ByteToESC = False
+            if motor1ByteToESC:
+                #print('Main K')
+                arDuinoSerialPort.send(['K', currentMotorRPM1 / 256, currentMotorRPM1 - ((currentMotorRPM1 / 256) * 256)])
+                motor1ByteToESC = False
 
-    if motor3ByteToESC:
-        #print('Main O')
-        #arDuinoSerialPort.send(['N', 0x1B, 0x58])
-        arDuinoSerialPort.send(['O', currentMotorRPM3/256,currentMotorRPM3-((currentMotorRPM3/256)*256)])
-        motor3ByteToESC = False
+            if motor2ByteToESC:
+                #print('Main N')
+                arDuinoSerialPort.send(['N', currentMotorRPM2 / 256, currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256)])
+                print("h1 : " + hex(currentMotorRPM2 / 256) + " h2: " + hex(currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256)))
+                #arDuinoSerialPort.send(['N', 0x17,0x70])
+                motor2ByteToESC = False
+
+            if motor3ByteToESC:
+                #print('Main O')
+                #arDuinoSerialPort.send(['N', 0x1B, 0x58])
+                arDuinoSerialPort.send(['O', currentMotorRPM3/256,currentMotorRPM3-((currentMotorRPM3/256)*256)])
+                motor3ByteToESC = False
+
+    if systemStateMachine.isDRIVING():
+        while(systemStateMachine.isDRIVING()):
+
+            #temporary solution:
+            #need to get real relative position coordinates
+            x = 0
+            y = 0
+
+            if (start_pos[0] - pos_precision < x < start_pos[0] + pos_precision) and (start_pos[1] - pos_precision < y < start_pos[1] + pos_precision):
+                print('Current position is the start position, starting...')
+            else:
+                print('Current position is NOT the start position')
+                systemStateMachine.setState(States.ERROR)
+                systemStateMachine.setErrorCode(ERRORS.NOTINSTARTPOS)
+            if (finish_pos[0] - pos_precision < x < finish_pos[0] + pos_precision) and (finish_pos[1] - pos_precision < y < finish_pos[1] + pos_precision):
+                print('Driving finished - platform reached the desired location')
+                print('IDLE state')
+                systemStateMachine.setState(States.IDLE)
+
+            if pos_state < len(coord_list):
+
+                # target coordinates
+                xf = coord_list[pos_state][0]
+                yf = coord_list[pos_state][1]
+                phif = coord_list[ori_state][2]
+
+                if ori_state > pos_state:
+                    routeMode = coord_list[pos_state][5]
+                elif ori_state <= pos_state:
+                    routeMode = coord_list[ori_state][5]
 
 
+            elif pos_state == len(coord_list):
+                pos_state = int(pos_state)
+                ori_state = int(ori_state)
+                xf = finish_pos[0]
+                yf = finish_pos[1]
+                phif = coord_list[ori_state][2]
+                routeMode = coord_list[ori_state][5]
 
-    #print("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+
+            dx = xf - x
+            dy = yf - y
+            dphi = phif - phi
+            s = (dx ** 2 + dy ** 2) ** (1 / 2)
+
+            rotation_time = offsetTime + dphi * deltaTime
+
+            if routeMode == 0:
+
+                if pos_state == ori_state:
+
+                    if s > precision:
+                        v = coord_list[pos_state][3]
+                        omega_z = 0.0
+
+                    else:
+                        v = 0
+                        omega_z = 0.0
+                        pos_state = pos_state + 1
+
+
+                elif pos_state > ori_state:
+                    v = 0
+
+                    if dphi > 0.08 or dphi < - 0.08:
+                        omega_z = coord_list[ori_state][4]
+                    else:
+                        omega_z = 0.0
+                        ori_state += 1
+                        phi = phif
+
+
+            elif routeMode == 1:
+
+                if s > 0.02:
+                    v = coord_list[pos_state][3]
+
+                else:
+                    v = 0
+
+                if dphi > 0.08 or dphi < - 0.08:
+                    omega_z = coord_list[ori_state][4]
+                else:
+                    omega_z = 0.0
+
+                if s < 0.02 and - 0.08 < dphi < 0.08:
+                    ori_state += 1
+                    pos_state += 1
+                    phi = phif
+
+            if dy > 0:
+                phi_v_x = math.acos(dx / s)
+            elif dy < 0:
+                phi_v_x = -math.acos(dx / s)
+            elif dy == 0:
+                phi_v_x = math.acos(dx / s)
+
+            vx = v * math.cos(phi_v_x);
+            vy = v * math.sin(phi_v_x);
+
+            targetMotorRPM1 = center_value + 1 / 0.1 * (-math.sin(phi) * vx + math.cos(phi) * vy + 0.3 * 3 * omega_z) * 100
+            targetMotorRPM2 = center_value + 1 / 0.1 * (-math.sin(phi + math.pi * 2 / 3) * vx + math.cos(phi + math.pi * 2 / 3) * vy + 0.3 * 3 * omega_z) * 100
+            targetMotorRPM3 = center_value + 1 / 0.1 * (-math.sin(phi + math.pi * 4 / 3) * vx + math.cos(phi + math.pi * 4 / 3) * vy + 0.3 * 3 * omega_z) * 100
+
+            currentMotorRPM1 = int(targetMotorRPM1)
+            currentMotorRPM2 = int(targetMotorRPM2)
+            currentMotorRPM3 = int(targetMotorRPM3)
+
+            if (omega_z == 0):
+                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+            elif (omega_z != 0):
+                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+
+                time.sleep(rotation_time)
+
+                targetMotorRPM1 = center_value
+                targetMotorRPM2 = center_value
+                targetMotorRPM3 = center_value
+
+                currentMotorRPM1 = int(targetMotorRPM1)
+                currentMotorRPM2 = int(targetMotorRPM2)
+                currentMotorRPM3 = int(targetMotorRPM3)
+                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+
+    if systemStateMachine.isInERROR():
+        while (systemStateMachine.isInERROR()):
+            targetMotorRPM1 = center_value
+            targetMotorRPM2 = center_value
+            targetMotorRPM3 = center_value
+
+            currentMotorRPM1 = int(targetMotorRPM1)
+            currentMotorRPM2 = int(targetMotorRPM2)
+            currentMotorRPM3 = int(targetMotorRPM3)
+
+            arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
 
     # Todo: Check in every cycle for feedback from ESC
 print('End of Motor Controller application')
