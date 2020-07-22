@@ -1,3 +1,5 @@
+from routestep import routeStepClass
+
 class JsonParserClass:
     def __init__(self):
         print("JSONparser initialized")
@@ -38,3 +40,123 @@ class JsonParserClass:
                         print("Error code: " + str(json_content["optional"]))
                     else:
                         print("State: UNKNOWN")
+
+    def parse_steps_message(self,json_content):
+        global startposition
+        global basestation
+        global steplist
+        global routeLoaded
+
+        # Set start position parameters
+        startposition = routeStepClass(json_content["optional"]["startposition"])
+        # Set basestation parameters
+        basestation = routeStepClass(json_content["optional"]["basestation"])
+        # Set steps parameters
+        steplist = []
+        for i in range(0, len(json_content["optional"]["mainsteps"])):
+            steplist.append(routeStepClass(json_content["optional"]["mainsteps"][i]))
+        routeLoaded = True
+
+        print("Parse steps message  -" + str((steplist[0]).getPosX()))
+        print("Parse steps message  --" + str((steplist[0]).getTransitMode()))
+        print("Parse steps message  ---" + str(len(steplist)))
+        ## Check action
+        ### move,stop,pause,goback
+        ### {
+        #       'action': 'LOAD',
+        #       'optional':
+        #           {
+        #           'startposition':
+        #               [
+        #                   {'px': '625.0'},
+        #                   {'py': '147.0'},
+        #                   {'tphi': '181.56222491684238'},
+        #                   {'msp': '0.0'},
+        #                   {'mo': '0.0'},
+        #                   {'trm': 'softStartStraightAndRotate'},
+        #                   {'stc': '0'},
+        #                   {'tpx': '645'},
+        #                   {'tpy': '167'},
+        #                   {'cpx': '610'},
+        #                   {'cpy': '132'},
+        #                   {'t': 'startState'}
+        #               ],
+        #           'basestation':
+        #               [
+        #                   {'px': '695.0'},
+        #                   {'py': '136.0'},
+        #                   {'tphi': '0.0'},
+        #                   {'msp': '0.0'},
+        #                   {'mo': '0.0'},
+        #                   {'trm': 'softStartStraightAndRotate'},
+        #                   {'stc': '0'},
+        #                   {'tpx': '715'},
+        #                   {'tpy': '156'},
+        #                   {'cpx': '680'},
+        #                   {'cpy': '121'},
+        #                   {'t': 'baseStation'}],
+        #           'type': 'STEPS',
+        #           'mainsteps':
+        #               [
+        #                   [
+        #                       {'px': '451.0'},
+        #                       {'py': '148.0'},
+        #                       {'tphi': '180.59680945122915'},
+        #                       {'msp': '2.0'},
+        #                       {'mo': '2.0'},
+        #                       {'trm': 'straightAndRotate'},
+        #                       {'stc': '0'},
+        #                       {'tpx': '471'},
+        #                       {'tpy': '168'},
+        #                       {'cpx': '436'},
+        #                       {'cpy': '133'},
+        #                       {'t': 'movementStep'}
+        #                    ],
+        #                    [
+        #                       {'px': '324.0'},
+        #                       {'py': '161.0'},
+        #                       {'tphi': '278.13010235415595'},
+        #                       {'msp': '2.0'},
+        #                       {'mo': '2.0'},
+        #                       {'trm': 'straightAndRotate'},
+        #                       {'stc': '1'},
+        #                       {'tpx': '344'},
+        #                       {'tpy': '181'},
+        #                       {'cpx': '309'},
+        #                       {'cpy': '146'},
+        #                       {'t': 'movementStep'}
+        #                    ],
+        #                    [
+        #                       {'px': '327.0'},
+        #                       {'py': '296.0'},
+        #                       {'tphi': '274.86451443776053'},
+        #                       {'msp': '2.0'},
+        #                       {'mo': '2.0'},
+        #                       {'trm': 'straightAndRotate'},
+        #                       {'stc': '2'},
+        #                       {'tpx': '347'},
+        #                       {'tpy': '316'},
+        #                       {'cpx': '312'},
+        #                       {'cpy': '281'},
+        #                       {'t': 'movementStep'}
+        #                     ],
+        #                     [
+        #                       {'px': '333.0'},
+        #                       {'py': '441.0'},
+        #                       {'tphi': '264.02567671351943'},
+        #                       {'msp': '2.0'},
+        #                       {'mo': '2.0'},
+        #                       {'trm': 'straightAndRotate'},
+        #                       {'stc': '3'},
+        #                       {'tpx': '353'},
+        #                       {'tpy': '461'},
+        #                       {'cpx': '318'},
+        #                       {'cpy': '426'},
+        #                       {'t': 'movementStep'}
+        #                     ]
+        #                ]
+        #           },
+        #      'type': 'STEPLIST'}
+
+
+

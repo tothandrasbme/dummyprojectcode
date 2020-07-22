@@ -75,33 +75,50 @@ class JSONSocketServer:
                     return 1
                 if len(rdy_read) > 0:
                     try:
-                        read_data = client_sock.recv(255)
+                        #finalMessageContent = ""
+                        #read_data = client_sock.recv(255)
+                        #while read_data[len(read_data)-1] != '_':
+                        #for x in range(0, 10):
+                        #    finalMessageContent += str(read_data)
+                        #    read_data = client_sock.recv(255)
+                        #    print("Get one package of message:" + str(finalMessageContent))
+
+                        read_data = client_sock.recv(4000)
+                        finalMessageContent = read_data
+
                         # Check if socket has been closed
-                        if len(read_data) == 0:
+                        if len(finalMessageContent) == 0:
                             print('{} closed the socket.'.format(client_addr))
                             stop = True
                             haveSocketOpened = False
                         else:
-                            print('>>> Received: {}'.format(read_data.rstrip()))
-                            if read_data.rstrip() == 'quit':
+                            #print('>>> Received: {}'.format(finalMessageContent.rstrip()))
+                            if finalMessageContent.rstrip() == 'quit':
                                 stop = True
                                 haveSocketOpened = False
                             else:
                                 ### client_sock.send(read_data) ### Test with loop back
-                                print("Parse this : " + str(read_data[2:].decode("utf-8")))
+                                #print("Parse this : " + str(finalMessageContent[2:].decode("utf-8")))
                                 try:
-                                    json_content = json.loads(str(read_data[2:].decode("utf-8")))
+                                    json_content = json.loads(str(finalMessageContent[2:].decode("utf-8")))
                                     print("Json - message type: " + str(json_content["type"]))
                                     if(str(json_content["type"]) == "MOVEMENTCONTROL"):
                                         self.json_parser_tool.parse_movement_control_message(json_content)
                                         print("Send back OK message to the socket server")
                                         #self.sendSocketMessage("Moveing control message - OK\r\n")
-                                        self.sendSocketMessage("{'optional': 'NaN', 'state': 'OK', 'type': 'MOVEMENTCONTROL'}\r\n")
+                                        self.sendSocketMessage("{\"optional\": \"NaN\", \"state\": \"OK\", \"type\": \"MOVEMENTCONTROL\"}\r\n")
                                     else:
                                         if(str(json_content["type"]) == "STATECONTROL"):
                                            self.json_parser_tool.parse_state_control_message(json_content)
                                            #self.sendSocketMessage("State control message - OK\r\n")
-                                           self.sendSocketMessage("{'optional': 'NaN', 'state': 'OK', 'type': 'STATECONTROL'}\r\n")
+                                           self.sendSocketMessage("{\"optional\": \"NaN\", \"state\": \"OK\", \"type\": \"STATECONTROL\"}\r\n")
+                                        else:
+                                            if (str(json_content["type"]) == "STEPLIST"):
+                                                self.json_parser_tool.parse_steps_message(json_content)
+                                                # self.sendSocketMessage("State control message - OK\r\n")
+                                                self.sendSocketMessage(
+                                                    "{\"optional\": \"NaN\", \"state\": \"OK\", \"type\": \"STEPLIST\"}\r\n")
+                                            print("MOve on")
                                 except Exception as f:
                                     print(
                                         'Issue during json parsing (' + str(

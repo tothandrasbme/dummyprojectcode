@@ -57,6 +57,10 @@ global motor3ByteToESC
 global stepTestValue
 global gamePadTestingCount
 global gamePadTestingCountLimit
+global startposition
+global basestation
+global steplist
+global routeLoaded
 
 #balint
 global x                        # current x pos
@@ -182,6 +186,9 @@ speed = "0.0"
 fixedGPS = False
 currentGPSlat = 46.711627
 currentGPSlon = 17.479634
+
+routeLoaded = False
+steplist = list()
 
 #### System state machine
 systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code
