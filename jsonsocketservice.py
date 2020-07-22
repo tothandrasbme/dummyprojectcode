@@ -58,6 +58,7 @@ class JSONSocketServer:
         global sock
         global client_sock
         global haveSocketOpened
+        global coord_list
         """ Accept and handle an incoming connection. """
         print('Starting socket server (host {}, port {})'.format(self.host, self.port))
         client_sock, client_addr = sock.accept()

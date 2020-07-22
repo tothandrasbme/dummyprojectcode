@@ -20,7 +20,8 @@ class ERRORS(enum.Enum):
     NONEXTSTEP = 3
     STOPPEDBYUSER = 4
     NOTINSTARTPOS = 5
-    MISSINGGAMEPAD = 5
+    MISSINGGAMEPAD = 6
+    UNKNOWNCOMMAND = 7
 
 class sysState:
     def __init__(self,state):

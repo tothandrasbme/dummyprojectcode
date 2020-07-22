@@ -81,6 +81,7 @@ global ori_state
 global rotation_time
 global deltaTime
 global offsetTime
+global systemStateMachine
 
 
 vx = 0
@@ -94,6 +95,7 @@ ori_state = 0
 phi = 0                         # nincs orientáció jel, kezdetben ebből indul a robot
 deltaTime = 0.5                 # 1rad=180° megtételéhez szükséges idő
 offsetTime = 0.1                # platform megmozdulásához szükséges idő
+
 
 rotate_left = False
 rotate_right = False
@@ -189,6 +191,7 @@ currentGPSlon = 17.479634
 
 routeLoaded = False
 steplist = list()
+coord_list = list()
 
 #### System state machine
 systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code

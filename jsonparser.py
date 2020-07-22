@@ -1,65 +1,94 @@
 from routestep import routeStepClass
+from state import sysState
+from state import States
+from state import ERRORS
 
 class JsonParserClass:
+    coord_list_in_parser = []
     def __init__(self):
         print("JSONparser initialized")
+        self.coord_list_in_parser = []
 
     def parse_movement_control_message(self,json_content):
+        global systemStateMachine
         print("Parse movement control message"+str(json_content))
         ## Check action
         ### move,stop,pause,goback
         ###
         if(str(json_content["action"]) == "move"):
             print("Action:move")
+            systemStateMachine.setState(States.DRIVING)
         else:
             if(str(json_content["action"]) == "stop"):
                print("Action:stop")
+               systemStateMachine.setState(States.IDLE)
             else:
                 if(str(json_content["action"]) == "pause"):
                     print("Action:pause")
+                    systemStateMachine.setState(States.IDLE)
                 else:
                     if (str(json_content["action"]) == "goback"):
                         print("Action:goback")
+                        systemStateMachine.setState(States.DRIVING)
                     else:
                         print("Action:unknown")
+                        systemStateMachine.setState(States.ERROR)
+                        systemStateMachine.setErrorCode(ERRORS.UNKNOWNCOMMAND)
 
     def parse_state_control_message(self,json_content):
+        global systemStateMachine
+
         print("Parse state control message"+str(json_content))
         ## Check state - ERROR - IDLE - CONTROLLED - DRIVING
         if (str(json_content["state"]) == "IDLE"):
             print("State: IDLE")
+            systemStateMachine.setState(States.IDLE)
         else:
             if (str(json_content["state"]) == "CONTROLLED"):
                 print("State: CONTROLLED")
+                systemStateMachine.setState(States.CONTROLLED)
             else:
                 if (str(json_content["state"]) == "DRIVING"):
                     print("State: DRIVING")
+                    systemStateMachine.setState(States.DRIVING)
                 else:
                     if (str(json_content["state"]) == "ERROR"):
                         print("State: ERROR")
                         print("Error code: " + str(json_content["optional"]))
+                        systemStateMachine.setState(States.ERROR)
+                        systemStateMachine.setErrorCode(ERRORS.UNKNOWNCOMMAND) ## TODO: create parsing step for string version of the error code.
                     else:
                         print("State: UNKNOWN")
+                        systemStateMachine.setState(States.ERROR)
+                        systemStateMachine.setErrorCode(ERRORS.UNKNOWNCOMMAND)
 
     def parse_steps_message(self,json_content):
         global startposition
         global basestation
         global steplist
         global routeLoaded
+        global coord_list
+
+        coord_list = list()
 
         # Set start position parameters
         startposition = routeStepClass(json_content["optional"]["startposition"])
+        coord_list.append(startposition.getStepParametersList())
         # Set basestation parameters
         basestation = routeStepClass(json_content["optional"]["basestation"])
+        coord_list.append(basestation.getStepParametersList())
         # Set steps parameters
         steplist = []
         for i in range(0, len(json_content["optional"]["mainsteps"])):
-            steplist.append(routeStepClass(json_content["optional"]["mainsteps"][i]))
+            newStep = routeStepClass(json_content["optional"]["mainsteps"][i])
+            steplist.append(newStep)
+            coord_list.append(newStep.getStepParametersList())
         routeLoaded = True
+
 
         print("Parse steps message  -" + str((steplist[0]).getPosX()))
         print("Parse steps message  --" + str((steplist[0]).getTransitMode()))
-        print("Parse steps message  ---" + str(len(steplist)))
+        print("Parse steps message  ---" + str(coord_list))
         ## Check action
         ### move,stop,pause,goback
         ### {
