@@ -20,6 +20,7 @@ import math
 from state import sysState
 from state import States
 from state import ERRORS
+from commonvariables import systemStateMachine
 from jsonparser import JsonParserClass
 import json
 from jsonsocketservice import JSONSocketServer
@@ -81,7 +82,7 @@ global ori_state
 global rotation_time
 global deltaTime
 global offsetTime
-global systemStateMachine
+
 
 
 vx = 0
@@ -194,7 +195,7 @@ steplist = list()
 coord_list = list()
 
 #### System state machine
-systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code
+## using it from common variables systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code
 
 #### System JSON Parser
 json_parser_tool = JsonParserClass()

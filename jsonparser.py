@@ -2,6 +2,7 @@ from routestep import routeStepClass
 from state import sysState
 from state import States
 from state import ERRORS
+from commonvariables import systemStateMachine
 
 class JsonParserClass:
     coord_list_in_parser = []
@@ -10,7 +11,6 @@ class JsonParserClass:
         self.coord_list_in_parser = []
 
     def parse_movement_control_message(self,json_content):
-        global systemStateMachine
         print("Parse movement control message"+str(json_content))
         ## Check action
         ### move,stop,pause,goback
@@ -36,7 +36,6 @@ class JsonParserClass:
                         systemStateMachine.setErrorCode(ERRORS.UNKNOWNCOMMAND)
 
     def parse_state_control_message(self,json_content):
-        global systemStateMachine
 
         print("Parse state control message"+str(json_content))
         ## Check state - ERROR - IDLE - CONTROLLED - DRIVING
