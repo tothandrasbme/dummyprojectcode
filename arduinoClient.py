@@ -21,6 +21,9 @@ from state import sysState
 from state import States
 from state import ERRORS
 from commonvariables import systemStateMachine
+from commonvariables import steplist
+from commonvariables import routeLoaded
+from commonvariables import coord_list
 from jsonparser import JsonParserClass
 import json
 from jsonsocketservice import JSONSocketServer
@@ -58,10 +61,7 @@ global motor3ByteToESC
 global stepTestValue
 global gamePadTestingCount
 global gamePadTestingCountLimit
-global startposition
-global basestation
-global steplist
-global routeLoaded
+
 
 #balint
 global x                        # current x pos
@@ -74,7 +74,6 @@ global regulatorMode
 global regFinished
 global posPrecision
 global orientPrecision
-global coord_list
 global finish_pos
 global start_pos
 global pos_state
@@ -96,7 +95,7 @@ ori_state = 0
 phi = 0                         # nincs orientáció jel, kezdetben ebből indul a robot
 deltaTime = 0.5                 # 1rad=180° megtételéhez szükséges idő
 offsetTime = 0.1                # platform megmozdulásához szükséges idő
-
+start_pos = list[]
 
 rotate_left = False
 rotate_right = False
@@ -190,9 +189,7 @@ fixedGPS = False
 currentGPSlat = 46.711627
 currentGPSlon = 17.479634
 
-routeLoaded = False
-steplist = list()
-coord_list = list()
+
 
 #### System state machine
 ## using it from common variables systemStateMachine = sysState(States.IDLE)  ## Set it to IDLE and inside the Class we set the default NOERROR Code

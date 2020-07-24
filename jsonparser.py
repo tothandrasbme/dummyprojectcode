@@ -3,12 +3,15 @@ from state import sysState
 from state import States
 from state import ERRORS
 from commonvariables import systemStateMachine
+from commonvariables import steplist
+from commonvariables import routeLoaded
+from commonvariables import coord_list
 
 class JsonParserClass:
-    coord_list_in_parser = []
+
     def __init__(self):
         print("JSONparser initialized")
-        self.coord_list_in_parser = []
+        coord_list = list()
 
     def parse_movement_control_message(self,json_content):
         print("Parse movement control message"+str(json_content))
@@ -62,12 +65,6 @@ class JsonParserClass:
                         systemStateMachine.setErrorCode(ERRORS.UNKNOWNCOMMAND)
 
     def parse_steps_message(self,json_content):
-        global startposition
-        global basestation
-        global steplist
-        global routeLoaded
-        global coord_list
-
         coord_list = list()
 
         # Set start position parameters
