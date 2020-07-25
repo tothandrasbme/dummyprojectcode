@@ -6,6 +6,8 @@ from commonvariables import systemStateMachine
 from commonvariables import steplist
 from commonvariables import routeLoaded
 from commonvariables import coord_list
+from commonvariables import deltaTime
+from commonvariables import offsetTime
 
 class JsonParserClass:
 
@@ -63,6 +65,16 @@ class JsonParserClass:
                         print("State: UNKNOWN")
                         systemStateMachine.setState(States.ERROR)
                         systemStateMachine.setErrorCode(ERRORS.UNKNOWNCOMMAND)
+
+    def parse_params_message(self,json_content):
+
+        print("Parse params control message"+str(json_content))
+        offsetTime = float(json_content["timeoffset"])
+        deltaTime = float(json_content["timedelta"])
+
+        print("New Delta from now: offset Time - " +  str(offsetTime) + " delta Time - " + str(deltaTime))
+
+
 
     def parse_steps_message(self,json_content):
         coord_list = list()

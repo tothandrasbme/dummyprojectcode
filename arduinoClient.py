@@ -24,6 +24,8 @@ from commonvariables import systemStateMachine
 from commonvariables import steplist
 from commonvariables import routeLoaded
 from commonvariables import coord_list
+from commonvariables import deltaTime
+from commonvariables import offsetTime
 from jsonparser import JsonParserClass
 import json
 from jsonsocketservice import JSONSocketServer
@@ -79,8 +81,7 @@ global start_pos
 global pos_state
 global ori_state
 global rotation_time
-global deltaTime
-global offsetTime
+
 
 
 
@@ -93,9 +94,8 @@ orientPrecision = math.pi/18    # 10°
 pos_state = 0
 ori_state = 0
 phi = 0                         # nincs orientáció jel, kezdetben ebből indul a robot
-deltaTime = 0.5                 # 1rad=180° megtételéhez szükséges idő
-offsetTime = 0.1                # platform megmozdulásához szükséges idő
-start_pos = list[]
+
+start_pos = list()
 
 rotate_left = False
 rotate_right = False

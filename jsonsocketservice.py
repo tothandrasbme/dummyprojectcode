@@ -119,7 +119,12 @@ class JSONSocketServer:
                                                 # self.sendSocketMessage("State control message - OK\r\n")
                                                 self.sendSocketMessage(
                                                     "{\"optional\": \"NaN\", \"state\": \"OK\", \"type\": \"STEPLIST\"}\r\n")
-                                            print("MOve on")
+                                            else:
+                                                if (str(json_content["type"]) == "PARAMS"):
+                                                    self.json_parser_tool.parse_params_message(json_content)
+                                                    # self.sendSocketMessage("State control message - OK\r\n")
+                                                    self.sendSocketMessage(
+                                                        "{\"optional\": \"NaN\", \"state\": \"OK\", \"type\": \"PARAMS\"}\r\n")
                                 except Exception as f:
                                     print(
                                         'Issue during json parsing (' + str(
