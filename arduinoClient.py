@@ -64,7 +64,6 @@ global stepTestValue
 global gamePadTestingCount
 global gamePadTestingCountLimit
 
-
 #balint
 global x                        # current x pos
 global y                        # current y pos
@@ -81,8 +80,7 @@ global start_pos
 global pos_state
 global ori_state
 global rotation_time
-
-
+global travel_time
 
 
 vx = 0
@@ -96,6 +94,7 @@ ori_state = 0
 phi = 0                         # nincs orientáció jel, kezdetben ebből indul a robot
 
 start_pos = list()
+finish_pos = list()
 
 rotate_left = False
 rotate_right = False
@@ -958,11 +957,11 @@ SocketServerThread = Thread(target=SocketServerClass.run)
 SocketServerThread.start()
 
 # Create GPS Connection Class for reading location
-GPSConnection = GPSUARTConnection()
+#GPSConnection = GPSUARTConnection()
 # Create Thread for reading
-GPSConnectionThread = Thread(target=GPSConnection.run)
+#GPSConnectionThread = Thread(target=GPSConnection.run)
 # Start Thread
-GPSConnectionThread.start()
+#GPSConnectionThread.start()
 
 # We have to delay a bit at the beginning for the game controller
 InitDC = InitDelayClass()
@@ -992,7 +991,7 @@ initNewLogFile()
 while Exit==False:
     state = systemStateMachine.getState()
     #print(arDuinoSerialPort.recv())  # Commented for better performance
-
+    print(state)
 
     if systemStateMachine.isIDLE():
 
@@ -1006,14 +1005,22 @@ while Exit==False:
         currentMotorRPM1 = int(targetMotorRPM1)
         currentMotorRPM2 = int(targetMotorRPM2)
         currentMotorRPM3 = int(targetMotorRPM3)
-        arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+        #arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+        arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+        print("IDLE")
+        print(coord_list)
+        print(deltaTime)
+        print(offsetTime)
+        
+        time.sleep(3)
+
 
     if systemStateMachine.isUnderCONTROL():
         while(systemStateMachine.isUnderCONTROL()):
             #arDuinoSerialPort.send("M 05000 05000 05000")
             if newSettingsForESC:
                 print('Main M')
-                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+                arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
                 newSettingsForESC = False
 
             if newTestForwardESC:
@@ -1027,7 +1034,7 @@ while Exit==False:
                 newTestBackESC = False
 
             if newStopESC:
-                arDuinoSerialPort.send("S")
+                arDuinoSerialPort.send(("S").encode())
                 print("Send Stop")
                 newStopESC = False
 
@@ -1056,22 +1063,24 @@ while Exit==False:
 
     if systemStateMachine.isDRIVING():
         while(systemStateMachine.isDRIVING()):
-
+            print("isDRIVING")
+            print(" pos_state=" +str(pos_state))
+            print(" ori_state=" +str(ori_state))
             #temporary solution:
             #need to get real relative position coordinates
-            x = 0
-            y = 0
+            xs = 0
+            ys = 0
 
-            if (start_pos[0] - pos_precision < x < start_pos[0] + pos_precision) and (start_pos[1] - pos_precision < y < start_pos[1] + pos_precision):
-                print('Current position is the start position, starting...')
-            else:
-                print('Current position is NOT the start position')
-                systemStateMachine.setState(States.ERROR)
-                systemStateMachine.setErrorCode(ERRORS.NOTINSTARTPOS)
-            if (finish_pos[0] - pos_precision < x < finish_pos[0] + pos_precision) and (finish_pos[1] - pos_precision < y < finish_pos[1] + pos_precision):
-                print('Driving finished - platform reached the desired location')
-                print('IDLE state')
-                systemStateMachine.setState(States.IDLE)
+            #if (start_pos[0] - pos_precision < x < start_pos[0] + pos_precision) and (start_pos[1] - pos_precision < y < start_pos[1] + pos_precision):
+            #    print('Current position is the start position, starting...')
+            #else:
+            #    print('Current position is NOT the start position')
+            #    systemStateMachine.setState(States.ERROR)
+            #    systemStateMachine.setErrorCode(ERRORS.NOTINSTARTPOS)
+            #if (finish_pos[0] - pos_precision < x < finish_pos[0] + pos_precision) and (finish_pos[1] - pos_precision < y < finish_pos[1] + pos_precision):
+            #    print('Driving finished - platform reached the desired location')
+            #    print('IDLE state')
+            #    systemStateMachine.setState(States.IDLE)
 
             if pos_state < len(coord_list):
 
@@ -1086,7 +1095,7 @@ while Exit==False:
                     routeMode = coord_list[ori_state][5]
 
 
-            elif pos_state == len(coord_list):
+            elif pos_state == len(coord_list) and ori_state != len(coord_list) :
                 pos_state = int(pos_state)
                 ori_state = int(ori_state)
                 xf = finish_pos[0]
@@ -1094,91 +1103,108 @@ while Exit==False:
                 phif = coord_list[ori_state][2]
                 routeMode = coord_list[ori_state][5]
 
+            elif pos_state == len(coord_list) and ori_state == len(coord_list) :
+                print("Finished")
+                systemStateMachine.setState(States.IDLE)
+                
 
-            dx = xf - x
-            dy = yf - y
-            dphi = phif - phi
-            s = (dx ** 2 + dy ** 2) ** (1 / 2)
+                    
+            if systemStateMachine.isDRIVING():       
+                dphi = phif - phi
+                dx = xf - xs
+                dy = yf - ys
+                s = (dx ** 2 + dy ** 2) ** (1 / 2)
+                print("dphi="+ str(dphi))
+                if routeMode == 0:
 
-            rotation_time = offsetTime + dphi * deltaTime
+                    if pos_state == ori_state:
+                        vx = coord_list[pos_state][3]
+                        vy = 0.0
+                        omega_z = 0
+                        
+                        if vx != 0:
+                            travel_time = 2*offsetTime+ s/vx
+                        else:
+                            travel_time = 0
+                        
 
-            if routeMode == 0:
+                    elif pos_state > ori_state:
+                        vx = 0
+                        vy = 0
 
-                if pos_state == ori_state:
+                        if dphi > 0.08 or dphi < - 0.08:
+                            omega_z = coord_list[ori_state][4]
+                        else:
+                            omega_z = 0
+                            ori_state += 1
+                            phi = phif
 
-                    if s > precision:
-                        v = coord_list[pos_state][3]
-                        omega_z = 0.0
-
-                    else:
-                        v = 0
-                        omega_z = 0.0
-                        pos_state = pos_state + 1
-
-
-                elif pos_state > ori_state:
-                    v = 0
-
-                    if dphi > 0.08 or dphi < - 0.08:
-                        omega_z = coord_list[ori_state][4]
-                    else:
-                        omega_z = 0.0
-                        ori_state += 1
-                        phi = phif
-
-
-            elif routeMode == 1:
-
-                if s > 0.02:
-                    v = coord_list[pos_state][3]
-
+                if omega_z != 0:
+                    deltaTime = 2*math.pi / abs(omega_z)
+                    rotation_time = offsetTime + deltaTime
                 else:
-                    v = 0
+                    deltaTime = 0
+                    rotation_time = 0
+                
+                
+                print("dphi="+ str(dphi))
+                print("travel_time="+str(travel_time))
+                print("omega = "+str(omega_z))
+                print("rotation_time ="+str(rotation_time))
+                
 
-                if dphi > 0.08 or dphi < - 0.08:
-                    omega_z = coord_list[ori_state][4]
-                else:
-                    omega_z = 0.0
+                if (omega_z == 0 and vx!= 0):
+                    
+                    targetMotorRPM1 = center_value 
+                    targetMotorRPM2 = center_value + 1 / 0.1 * (-math.sin(math.pi * 2 / 3) * vx + math.cos(math.pi * 2 / 3) * vy + 0.3 * 3 * omega_z) * 100
+                    targetMotorRPM3 = center_value + 1 / 0.1 * (-math.sin(math.pi * 4 / 3) * vx + math.cos(math.pi * 4 / 3) * vy + 0.3 * 3 * omega_z) * 100
 
-                if s < 0.02 and - 0.08 < dphi < 0.08:
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+                    print(targetMotorRPM3)
+                    time.sleep(travel_time)
+                    
+
+                    targetMotorRPM1 = center_value
+                    targetMotorRPM2 = center_value
+                    targetMotorRPM3 = center_value
+
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+
+                    arDuinoSerialPort.send(("S").encode())
+                    pos_state = pos_state + 1
+                    xs=xf
+                    ys=yf
+                    #arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+
+                elif (omega_z != 0 and vx == 0 ):
+                                    
+                    targetMotorRPM1 = center_value + 0.3 * 3 * omega_z * 100
+                    targetMotorRPM2 = center_value + 0.3 * 3 * omega_z * 100
+                    targetMotorRPM3 = center_value + 0.3 * 3 * omega_z * 100
+
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+                    print(targetMotorRPM3)
+                    time.sleep(rotation_time)
+
+                    targetMotorRPM1 = center_value
+                    targetMotorRPM2 = center_value
+                    targetMotorRPM3 = center_value
+
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("S").encode())
                     ori_state += 1
-                    pos_state += 1
                     phi = phif
-
-            if dy > 0:
-                phi_v_x = math.acos(dx / s)
-            elif dy < 0:
-                phi_v_x = -math.acos(dx / s)
-            elif dy == 0:
-                phi_v_x = math.acos(dx / s)
-
-            vx = v * math.cos(phi_v_x);
-            vy = v * math.sin(phi_v_x);
-
-            targetMotorRPM1 = center_value + 1 / 0.1 * (-math.sin(phi) * vx + math.cos(phi) * vy + 0.3 * 3 * omega_z) * 100
-            targetMotorRPM2 = center_value + 1 / 0.1 * (-math.sin(phi + math.pi * 2 / 3) * vx + math.cos(phi + math.pi * 2 / 3) * vy + 0.3 * 3 * omega_z) * 100
-            targetMotorRPM3 = center_value + 1 / 0.1 * (-math.sin(phi + math.pi * 4 / 3) * vx + math.cos(phi + math.pi * 4 / 3) * vy + 0.3 * 3 * omega_z) * 100
-
-            currentMotorRPM1 = int(targetMotorRPM1)
-            currentMotorRPM2 = int(targetMotorRPM2)
-            currentMotorRPM3 = int(targetMotorRPM3)
-
-            if (omega_z == 0):
-                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
-            elif (omega_z != 0):
-                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
-
-                time.sleep(rotation_time)
-
-                targetMotorRPM1 = center_value
-                targetMotorRPM2 = center_value
-                targetMotorRPM3 = center_value
-
-                currentMotorRPM1 = int(targetMotorRPM1)
-                currentMotorRPM2 = int(targetMotorRPM2)
-                currentMotorRPM3 = int(targetMotorRPM3)
-                arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
-
+                    #arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
     if systemStateMachine.isInERROR():
         while (systemStateMachine.isInERROR()):
             targetMotorRPM1 = center_value
@@ -1189,8 +1215,7 @@ while Exit==False:
             currentMotorRPM2 = int(targetMotorRPM2)
             currentMotorRPM3 = int(targetMotorRPM3)
 
-            arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+            arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
 
     # Todo: Check in every cycle for feedback from ESC
 print('End of Motor Controller application')
-
