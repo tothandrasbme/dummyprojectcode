@@ -8,6 +8,7 @@ from commonvariables import routeLoaded
 from commonvariables import coord_list
 from commonvariables import deltaTime
 from commonvariables import offsetTime
+import commonvariables
 
 class JsonParserClass:
 
@@ -69,29 +70,30 @@ class JsonParserClass:
     def parse_params_message(self,json_content):
 
         print("Parse params control message"+str(json_content))
-        offsetTime = float(json_content["timeoffset"])
-        deltaTime = float(json_content["timedelta"])
+        commonvariables.offsetTime = float(json_content["timeoffset"])
+        commonvariables.deltaTime = float(json_content["timedelta"])
 
-        print("New Delta from now: offset Time - " +  str(offsetTime) + " delta Time - " + str(deltaTime))
+        print("New Delta from now: offset Time - " +  str(commonvariables.offsetTime) + " delta Time - " + str(commonvariables.deltaTime))
 
 
 
     def parse_steps_message(self,json_content):
-        coord_list = list()
-
+        commonvariables.coord_list = []
+        commonvariables.steplist = []
+        
         # Set start position parameters
         startposition = routeStepClass(json_content["optional"]["startposition"])
-        coord_list.append(startposition.getStepParametersList())
+        commonvariables.coord_list.append(startposition.getStepParametersList())
         # Set basestation parameters
         basestation = routeStepClass(json_content["optional"]["basestation"])
-        coord_list.append(basestation.getStepParametersList())
+        #commonvariables.coord_list.append(basestation.getStepParametersList())
         # Set steps parameters
-        steplist = []
+        
         for i in range(0, len(json_content["optional"]["mainsteps"])):
             newStep = routeStepClass(json_content["optional"]["mainsteps"][i])
-            steplist.append(newStep)
-            coord_list.append(newStep.getStepParametersList())
-        routeLoaded = True
+            commonvariables.steplist.append(newStep.getStepParametersList())
+            commonvariables.coord_list.append(newStep.getStepParametersList())
+        commonvariables.routeLoaded = True
 
 
         print("Parse steps message  -" + str((steplist[0]).getPosX()))

@@ -21,11 +21,12 @@ from state import sysState
 from state import States
 from state import ERRORS
 from commonvariables import systemStateMachine
-from commonvariables import steplist
-from commonvariables import routeLoaded
-from commonvariables import coord_list
-from commonvariables import deltaTime
-from commonvariables import offsetTime
+#from commonvariables import steplist
+#from commonvariables import routeLoaded
+#from commonvariables import coord_list
+#from commonvariables import deltaTime
+#from commonvariables import offsetTime
+import commonvariables
 from jsonparser import JsonParserClass
 import json
 from jsonsocketservice import JSONSocketServer
@@ -54,6 +55,7 @@ global MVSThread
 global haltThreadFlag
 global newSettingsForESC
 global newStopESC
+global newTestESC
 global newTestForwardESC
 global newTestBackESC
 global newTestByteESC
@@ -75,7 +77,7 @@ global regulatorMode
 global regFinished
 global posPrecision
 global orientPrecision
-global finish_pos
+#global finish_pos
 global start_pos
 global pos_state
 global ori_state
@@ -94,7 +96,7 @@ ori_state = 0
 phi = 0                         # nincs orientáció jel, kezdetben ebből indul a robot
 
 start_pos = list()
-finish_pos = list()
+#finish_pos = list()
 
 rotate_left = False
 rotate_right = False
@@ -123,6 +125,7 @@ newSettingsForESC = False
 newTestForwardESC = False
 newTestBackESC = False
 newStopESC = False
+newTestESC = False
 newTestByteESC = False
 stepTestValue = center_value
 motor1ByteToESC = False
@@ -245,6 +248,7 @@ class KeyboardPoller:
         global newTestForwardESC
         global newTestBackESC
         global newStopESC
+        global newTestESC
         global newTestByteESC
         global stepTestValue
         global center_value
@@ -481,6 +485,7 @@ class GamePadPoller:
         global newTestForwardESC
         global newTestBackESC
         global newStopESC
+        global newTestESC
         global newTestByteESC
         global stepTestValue
         global center_value
@@ -536,7 +541,10 @@ class GamePadPoller:
                         # targetMotorRPM3 = center_value
                         # currentMotorRPM3 = targetMotorRPM3
                         newStopESC = True
-
+                        
+                    elif event.code == 'BTN_START':
+                        newTestESC = True
+                        
                     else:
                         if event.code == 'ABS_RZ':
                             vx = 0.0
@@ -570,13 +578,13 @@ class GamePadPoller:
                             omega_z=0.0
                             newSettingsForESC = True
 
-                        if event.code == 'ABS_HAT0X':
+                        if event.code == 'ABS_HAT0Y':
                             vx = event.state
                             vy= 0.0
                             omega_z=0.0
                             newSettingsForESC = True
 
-                        if event.code == 'ABS_HAT0Y':
+                        if event.code == 'ABS_HAT0X':
                             vx = 0.0
                             vy = event.state
                             omega_z=0.0
@@ -1008,9 +1016,10 @@ while Exit==False:
         #arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
         arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
         print("IDLE")
-        print(coord_list)
-        print(deltaTime)
-        print(offsetTime)
+        print(commonvariables.coord_list)
+        print(commonvariables.deltaTime)
+        print(commonvariables.offsetTime)
+        print(commonvariables.steplist)
         
         time.sleep(3)
 
@@ -1037,7 +1046,30 @@ while Exit==False:
                 arDuinoSerialPort.send(("S").encode())
                 print("Send Stop")
                 newStopESC = False
+  
+            if newTestESC:
+                    targetMotorRPM1 = center_value + 500        #0.3 * 3 * omega_z * 100
+                    targetMotorRPM2 = center_value + 500        #0.3 * 3 * omega_z * 100
+                    targetMotorRPM3 = center_value + 500        #0.3 * 3 * omega_z * 100
 
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+                    print(targetMotorRPM3)
+                    time.sleep(commonvariables.offsetTime + 360 * commonvariables.deltaTime)
+
+                    targetMotorRPM1 = center_value
+                    targetMotorRPM2 = center_value
+                    targetMotorRPM3 = center_value
+
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("S").encode())     
+                
+                    newTestESC = False
+                
             if newTestByteESC:
                 print('Main Z')
                 arDuinoSerialPort.send(['Z', currentMotorRPM1 / 256, currentMotorRPM1 - ((currentMotorRPM1 / 256) * 256), currentMotorRPM2 / 256, currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256), currentMotorRPM3 / 256, currentMotorRPM3 - ((currentMotorRPM3 / 256) * 256)])
@@ -1068,8 +1100,7 @@ while Exit==False:
             print(" ori_state=" +str(ori_state))
             #temporary solution:
             #need to get real relative position coordinates
-            xs = 0
-            ys = 0
+
 
             #if (start_pos[0] - pos_precision < x < start_pos[0] + pos_precision) and (start_pos[1] - pos_precision < y < start_pos[1] + pos_precision):
             #    print('Current position is the start position, starting...')
@@ -1081,49 +1112,57 @@ while Exit==False:
             #    print('Driving finished - platform reached the desired location')
             #    print('IDLE state')
             #    systemStateMachine.setState(States.IDLE)
-
-            if pos_state < len(coord_list):
+            if pos_state == 0:
+                xs = commonvariables.coord_list[0][0]
+                ys = commonvariables.coord_list[0][1]
+                
+            if pos_state < len(commonvariables.steplist):
 
                 # target coordinates
-                xf = coord_list[pos_state][0]
-                yf = coord_list[pos_state][1]
-                phif = coord_list[ori_state][2]
+                xf = commonvariables.steplist[pos_state][0]
+                yf = commonvariables.steplist[pos_state][1]
+                phif = commonvariables.steplist[ori_state][2]
 
                 if ori_state > pos_state:
-                    routeMode = coord_list[pos_state][5]
+                    routeMode = commonvariables.steplist[pos_state][5]
                 elif ori_state <= pos_state:
-                    routeMode = coord_list[ori_state][5]
+                    routeMode = commonvariables.steplist[ori_state][5]
 
 
-            elif pos_state == len(coord_list) and ori_state != len(coord_list) :
+            elif pos_state == len(commonvariables.steplist) and ori_state != len(commonvariables.steplist) :
                 pos_state = int(pos_state)
                 ori_state = int(ori_state)
-                xf = finish_pos[0]
-                yf = finish_pos[1]
-                phif = coord_list[ori_state][2]
-                routeMode = coord_list[ori_state][5]
+                xf = commonvariables.steplist[len(commonvariables.steplist)-1][0]
+                yf = commonvariables.steplist[len(commonvariables.steplist)-1][1]
+                phif = commonvariables.steplist[ori_state][2]
+                routeMode = commonvariables.steplist[ori_state][5]
 
-            elif pos_state == len(coord_list) and ori_state == len(coord_list) :
+            elif pos_state == len(commonvariables.steplist) and ori_state == len(commonvariables.steplist) :
                 print("Finished")
+                pos_state = 0
+                ori_state = 0
+                phi = 0
                 systemStateMachine.setState(States.IDLE)
                 
 
                     
             if systemStateMachine.isDRIVING():       
-                dphi = phif - phi
+                dphi = (phif - phi) / 180 * math.pi 
                 dx = xf - xs
                 dy = yf - ys
                 s = (dx ** 2 + dy ** 2) ** (1 / 2)
+                print("phi="+ str(phi))
+                print("phif="+ str(phif))
                 print("dphi="+ str(dphi))
                 if routeMode == 0:
 
                     if pos_state == ori_state:
-                        vx = coord_list[pos_state][3]
+                        vx = commonvariables.steplist[pos_state][3]
                         vy = 0.0
                         omega_z = 0
                         
                         if vx != 0:
-                            travel_time = 2*offsetTime+ s/vx
+                            travel_time = 2*commonvariables.offsetTime+ s/vx
                         else:
                             travel_time = 0
                         
@@ -1131,21 +1170,40 @@ while Exit==False:
                     elif pos_state > ori_state:
                         vx = 0
                         vy = 0
-
+                        travel_time = 0
                         if dphi > 0.08 or dphi < - 0.08:
-                            omega_z = coord_list[ori_state][4]
+                            if dphi > math.pi:
+                                omega_z =  -1                                        # commonvariables.steplist[ori_state][4]
+                                dphi = 2* math.pi - (phif - phi) / 180 * math.pi     # calc real dphi
+                                print("dphi0="+ str(dphi))
+                            elif dphi < -math.pi:
+                                omega_z = 1
+                                dphi = 2* math.pi + (phif - phi) / 180 * math.pi
+                                print("dphi1="+ str(dphi))
+                            else:   
+                                if dphi < 0:
+                                    omega_z = -1
+                                elif dphi > 0:
+                                    omega_z = 1                                
+                                dphi = abs((phif - phi) / 180 * math.pi)
+                                print("dphi2="+ str(dphi))                                
                         else:
                             omega_z = 0
                             ori_state += 1
                             phi = phif
 
                 if omega_z != 0:
-                    deltaTime = 2*math.pi / abs(omega_z)
-                    rotation_time = offsetTime + deltaTime
+                    rotation_time = commonvariables.offsetTime + dphi * commonvariables.deltaTime
                 else:
-                    deltaTime = 0
                     rotation_time = 0
-                
+                print("xs="+ str(xs))
+                print("xf="+ str(xf))
+                print("ys="+ str(ys))
+                print("yf="+ str(yf))
+                print("dx="+ str(dx))
+                print("dy="+ str(dy))
+                print("s="+ str(s))
+                print(vx)
                 
                 print("dphi="+ str(dphi))
                 print("travel_time="+str(travel_time))
@@ -1183,9 +1241,9 @@ while Exit==False:
 
                 elif (omega_z != 0 and vx == 0 ):
                                     
-                    targetMotorRPM1 = center_value + 0.3 * 3 * omega_z * 100
-                    targetMotorRPM2 = center_value + 0.3 * 3 * omega_z * 100
-                    targetMotorRPM3 = center_value + 0.3 * 3 * omega_z * 100
+                    targetMotorRPM1 = center_value + 500 * omega_z
+                    targetMotorRPM2 = center_value + 500 * omega_z
+                    targetMotorRPM3 = center_value + 500 * omega_z
 
                     currentMotorRPM1 = int(targetMotorRPM1)
                     currentMotorRPM2 = int(targetMotorRPM2)

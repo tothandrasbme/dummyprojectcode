@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="3f11c0d7-444c-4437-a38c-853b67640fa7" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/arduinoClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/arduinoClient.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,9 +35,9 @@
     <servers />
   </component>
   <component name="WindowStateProjectService">
-    <state x="655" y="343" key="com.intellij.ide.util.TipDialog" timestamp="1595195266262">
+    <state x="655" y="343" key="com.intellij.ide.util.TipDialog" timestamp="1596474974250">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state x="655" y="343" key="com.intellij.ide.util.TipDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1595195266262" />
+    <state x="655" y="343" key="com.intellij.ide.util.TipDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1596474974250" />
   </component>
 </project>
