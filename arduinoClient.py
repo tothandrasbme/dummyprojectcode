@@ -56,6 +56,7 @@ global haltThreadFlag
 global newSettingsForESC
 global newStopESC
 global newTestESC
+global newTestESC2
 global newTestForwardESC
 global newTestBackESC
 global newTestByteESC
@@ -126,6 +127,7 @@ newTestForwardESC = False
 newTestBackESC = False
 newStopESC = False
 newTestESC = False
+newTestESC2 = False
 newTestByteESC = False
 stepTestValue = center_value
 motor1ByteToESC = False
@@ -249,6 +251,7 @@ class KeyboardPoller:
         global newTestBackESC
         global newStopESC
         global newTestESC
+        global newTestESC2
         global newTestByteESC
         global stepTestValue
         global center_value
@@ -486,6 +489,7 @@ class GamePadPoller:
         global newTestBackESC
         global newStopESC
         global newTestESC
+        global newTestESC2
         global newTestByteESC
         global stepTestValue
         global center_value
@@ -544,6 +548,9 @@ class GamePadPoller:
                         
                     elif event.code == 'BTN_START':
                         newTestESC = True
+                        
+                    elif event.code == 'BTN_TR':
+                        newTestESC2 = True    
                         
                     else:
                         if event.code == 'ABS_RZ':
@@ -1069,7 +1076,34 @@ while Exit==False:
                     arDuinoSerialPort.send(("S").encode())     
                 
                     newTestESC = False
-                
+            
+            
+            if newTestESC2:
+                    targetMotorRPM1 = center_value + 500        #0.3 * 3 * omega_z * 100
+                    targetMotorRPM2 = center_value + 500        #0.3 * 3 * omega_z * 100
+                    targetMotorRPM3 = center_value + 500        #0.3 * 3 * omega_z * 100
+
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+                    print(targetMotorRPM3)
+                    time.sleep(commonvariables.offsetTime + 90 * commonvariables.deltaTime)
+
+                    targetMotorRPM1 = center_value
+                    targetMotorRPM2 = center_value
+                    targetMotorRPM3 = center_value
+
+                    currentMotorRPM1 = int(targetMotorRPM1)
+                    currentMotorRPM2 = int(targetMotorRPM2)
+                    currentMotorRPM3 = int(targetMotorRPM3)
+                    arDuinoSerialPort.send(("S").encode())
+                    time.sleep(0.1)
+                    arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+                    
+                    newTestESC2 = False
+
+                    
             if newTestByteESC:
                 print('Main Z')
                 arDuinoSerialPort.send(['Z', currentMotorRPM1 / 256, currentMotorRPM1 - ((currentMotorRPM1 / 256) * 256), currentMotorRPM2 / 256, currentMotorRPM2 - ((currentMotorRPM2 / 256) * 256), currentMotorRPM3 / 256, currentMotorRPM3 - ((currentMotorRPM3 / 256) * 256)])
@@ -1113,8 +1147,16 @@ while Exit==False:
             #    print('IDLE state')
             #    systemStateMachine.setState(States.IDLE)
             if pos_state == 0:
-                xs = commonvariables.coord_list[0][0]
-                ys = commonvariables.coord_list[0][1]
+                if len(commonvariables.coord_list) == 0:
+                    systemStateMachine.setState(States.ERROR)
+                    systemStateMachine.setErrorCode(ERRORS.NONEXTSTEP)
+                    print("isInERROR: EMPTY Coordinate list")
+                    break
+                else:    
+                    xs = commonvariables.coord_list[0][0]
+                    ys = commonvariables.coord_list[0][1]
+                    phi = commonvariables.coord_list[0][2]
+                    print("phi: "+str(phi))
                 
             if pos_state < len(commonvariables.steplist):
 
@@ -1137,7 +1179,7 @@ while Exit==False:
                 phif = commonvariables.steplist[ori_state][2]
                 routeMode = commonvariables.steplist[ori_state][5]
 
-            elif pos_state == len(commonvariables.steplist) and ori_state == len(commonvariables.steplist) :
+            elif pos_state == len(commonvariables.steplist) and ori_state == len(commonvariables.steplist) and systemStateMachine.isDRIVING() :
                 print("Finished")
                 pos_state = 0
                 ori_state = 0
@@ -1162,7 +1204,8 @@ while Exit==False:
                         omega_z = 0
                         
                         if vx != 0:
-                            travel_time = 2*commonvariables.offsetTime+ s/vx
+                            travel_time = 1 + commonvariables.offsetTime+ s/vx
+                            rotation_time = 0
                         else:
                             travel_time = 0
                         
@@ -1177,14 +1220,14 @@ while Exit==False:
                                 dphi = 2* math.pi - (phif - phi) / 180 * math.pi     # calc real dphi
                                 print("dphi0="+ str(dphi))
                             elif dphi < -math.pi:
-                                omega_z = 1
+                                omega_z = -1
                                 dphi = 2* math.pi + (phif - phi) / 180 * math.pi
                                 print("dphi1="+ str(dphi))
                             else:   
                                 if dphi < 0:
-                                    omega_z = -1
+                                    omega_z = 1
                                 elif dphi > 0:
-                                    omega_z = 1                                
+                                    omega_z = -1                                
                                 dphi = abs((phif - phi) / 180 * math.pi)
                                 print("dphi2="+ str(dphi))                                
                         else:
@@ -1212,16 +1255,20 @@ while Exit==False:
                 
 
                 if (omega_z == 0 and vx!= 0):
-                    
+                    arDuinoSerialPort.send(("S").encode())
+                    time.sleep(1)
+                    print(math.sin(math.pi * 2 / 3))
                     targetMotorRPM1 = center_value 
-                    targetMotorRPM2 = center_value + 1 / 0.1 * (-math.sin(math.pi * 2 / 3) * vx + math.cos(math.pi * 2 / 3) * vy + 0.3 * 3 * omega_z) * 100
-                    targetMotorRPM3 = center_value + 1 / 0.1 * (-math.sin(math.pi * 4 / 3) * vx + math.cos(math.pi * 4 / 3) * vy + 0.3 * 3 * omega_z) * 100
+                    targetMotorRPM2 = center_value + 1 / 0.07 * (-math.sin(math.pi * 2 / 3) * vx + math.cos(math.pi * 2 / 3) * vy + 0.3 * 3 * omega_z)*100 
+                    targetMotorRPM3 = center_value + 1 / 0.07 * (-math.sin(math.pi * 4 / 3) * vx + math.cos(math.pi * 4 / 3) * vy + 0.3 * 3 * omega_z) *100
 
                     currentMotorRPM1 = int(targetMotorRPM1)
                     currentMotorRPM2 = int(targetMotorRPM2)
                     currentMotorRPM3 = int(targetMotorRPM3)
                     arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
+                    print(targetMotorRPM2)
                     print(targetMotorRPM3)
+                    print("======================================================")
                     time.sleep(travel_time)
                     
 
@@ -1234,6 +1281,7 @@ while Exit==False:
                     currentMotorRPM3 = int(targetMotorRPM3)
 
                     arDuinoSerialPort.send(("S").encode())
+                    time.sleep(2)  
                     pos_state = pos_state + 1
                     xs=xf
                     ys=yf
@@ -1251,7 +1299,7 @@ while Exit==False:
                     arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
                     print(targetMotorRPM3)
                     time.sleep(rotation_time)
-
+                    print("=====================================================")
                     targetMotorRPM1 = center_value
                     targetMotorRPM2 = center_value
                     targetMotorRPM3 = center_value
@@ -1259,10 +1307,17 @@ while Exit==False:
                     currentMotorRPM1 = int(targetMotorRPM1)
                     currentMotorRPM2 = int(targetMotorRPM2)
                     currentMotorRPM3 = int(targetMotorRPM3)
+
                     arDuinoSerialPort.send(("S").encode())
+                    time.sleep(2)  
                     ori_state += 1
                     phi = phif
                     #arDuinoSerialPort.send("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3))
+                
+                  
+                
+                
+                
     if systemStateMachine.isInERROR():
         while (systemStateMachine.isInERROR()):
             targetMotorRPM1 = center_value
