@@ -1036,6 +1036,13 @@ while Exit==False:
             #arDuinoSerialPort.send("M 05000 05000 05000")
             if newSettingsForESC:
                 print('Main M')
+                targetMotorRPM1 = center_value + 1 / 0.1 * (-math.sin(phi) * vx + math.cos(phi) * vy + 0.3 * 3 * omega_z) * 100
+                targetMotorRPM2 = center_value + 1 / 0.1 * (-math.sin(phi + math.pi * 2 / 3) * vx + math.cos(phi + math.pi * 2 / 3) * vy + 0.3 * 3 * omega_z) * 100
+                targetMotorRPM3 = center_value + 1 / 0.1 * (-math.sin(phi + math.pi * 4 / 3) * vx + math.cos(phi + math.pi * 4 / 3) * vy + 0.3 * 3 * omega_z) * 100
+
+                currentMotorRPM1 = int(targetMotorRPM1)
+                currentMotorRPM2 = int(targetMotorRPM2)
+                currentMotorRPM3 = int(targetMotorRPM3)
                 arDuinoSerialPort.send(("M 0" + str(currentMotorRPM1) + " 0" + str(currentMotorRPM2) + " 0" + str(currentMotorRPM3)).encode())
                 newSettingsForESC = False
 
